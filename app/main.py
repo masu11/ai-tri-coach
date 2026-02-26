@@ -2,52 +2,63 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 import os
 import requests
-import sqlite3
 import time
+import psycopg
 
 app = FastAPI()
-
-def init_db():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tokens (
-            id INTEGER PRIMARY KEY,
-            access_token TEXT,
-            refresh_token TEXT,
-            expires_at INTEGER
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS activities (
-            id INTEGER PRIMARY KEY,
-            strava_id INTEGER UNIQUE,
-            name TEXT,
-            sport_type TEXT,
-            start_date TEXT,
-            duration INTEGER,
-            distance REAL,
-            avg_hr REAL,
-            avg_power REAL
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
 
 CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-ACCESS_TOKEN = None
+
+# ---------------------------
+# DATABASE INIT
+# ---------------------------
+
+def init_db():
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tokens (
+                    id SERIAL PRIMARY KEY,
+                    access_token TEXT,
+                    refresh_token TEXT,
+                    expires_at BIGINT
+                )
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS activities (
+                    id SERIAL PRIMARY KEY,
+                    strava_id BIGINT UNIQUE,
+                    name TEXT,
+                    sport_type TEXT,
+                    start_date TIMESTAMP,
+                    duration INTEGER,
+                    distance DOUBLE PRECISION,
+                    avg_hr DOUBLE PRECISION,
+                    avg_power DOUBLE PRECISION
+                )
+            """)
+
+init_db()
+
+
+# ---------------------------
+# ROOT
+# ---------------------------
 
 @app.get("/")
 def root():
-    return {"status": "AI Tri Coach running"}
+    return {"status": "AI Tri Coach running (Postgres)"}
+
+
+# ---------------------------
+# LOGIN
+# ---------------------------
 
 @app.get("/login")
 def login():
@@ -61,8 +72,14 @@ def login():
     )
     return RedirectResponse(auth_url)
 
+
+# ---------------------------
+# CALLBACK
+# ---------------------------
+
 @app.get("/callback")
 def callback(code: str):
+
     token_response = requests.post(
         "https://www.strava.com/oauth/token",
         data={
@@ -79,63 +96,68 @@ def callback(code: str):
     refresh_token = token_data["refresh_token"]
     expires_at = token_data["expires_at"]
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM tokens")
+            cur.execute(
+                "INSERT INTO tokens (access_token, refresh_token, expires_at) VALUES (%s, %s, %s)",
+                (access_token, refresh_token, expires_at),
+            )
 
-    cursor.execute("DELETE FROM tokens")
-    cursor.execute(
-        "INSERT INTO tokens (access_token, refresh_token, expires_at) VALUES (?, ?, ?)",
-        (access_token, refresh_token, expires_at),
-    )
+    return {"message": "Strava connected and token stored in Postgres"}
 
-    conn.commit()
-    conn.close()
 
-    return {"message": "Strava connected and token stored"}
+# ---------------------------
+# TOKEN MANAGEMENT
+# ---------------------------
 
 def get_valid_token():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT access_token, refresh_token, expires_at FROM tokens LIMIT 1")
-    row = cursor.fetchone()
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
 
-    if not row:
-        conn.close()
-        return None
+            cur.execute("SELECT access_token, refresh_token, expires_at FROM tokens LIMIT 1")
+            row = cur.fetchone()
 
-    access_token, refresh_token, expires_at = row
+            if not row:
+                return None
 
-    if time.time() > expires_at:
-        # token expired → refresh
-        response = requests.post(
-            "https://www.strava.com/oauth/token",
-            data={
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-            },
-        )
+            access_token, refresh_token, expires_at = row
 
-        token_data = response.json()
-        access_token = token_data["access_token"]
-        refresh_token = token_data["refresh_token"]
-        expires_at = token_data["expires_at"]
+            if time.time() > expires_at:
 
-        cursor.execute("DELETE FROM tokens")
-        cursor.execute(
-            "INSERT INTO tokens (access_token, refresh_token, expires_at) VALUES (?, ?, ?)",
-            (access_token, refresh_token, expires_at),
-        )
+                response = requests.post(
+                    "https://www.strava.com/oauth/token",
+                    data={
+                        "client_id": CLIENT_ID,
+                        "client_secret": CLIENT_SECRET,
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                    },
+                )
 
-        conn.commit()
+                token_data = response.json()
 
-    conn.close()
+                access_token = token_data["access_token"]
+                refresh_token = token_data["refresh_token"]
+                expires_at = token_data["expires_at"]
+
+                cur.execute("DELETE FROM tokens")
+                cur.execute(
+                    "INSERT INTO tokens (access_token, refresh_token, expires_at) VALUES (%s, %s, %s)",
+                    (access_token, refresh_token, expires_at),
+                )
+
     return access_token
+
+
+# ---------------------------
+# SYNC
+# ---------------------------
 
 @app.get("/sync")
 def full_sync():
+
     access_token = get_valid_token()
 
     if not access_token:
@@ -144,53 +166,55 @@ def full_sync():
     page = 1
     total_activities = 0
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
 
-    while True:
-        response = requests.get(
-            "https://www.strava.com/api/v3/athlete/activities",
-            headers={"Authorization": f"Bearer {access_token}"},
-            params={"per_page": 200, "page": page},
-        )
+            while True:
 
-        activities = response.json()
+                response = requests.get(
+                    "https://www.strava.com/api/v3/athlete/activities",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"per_page": 200, "page": page},
+                )
 
-        if not activities:
-            break
+                activities = response.json()
 
-        for act in activities:
-            cursor.execute("""
-                INSERT OR IGNORE INTO activities
-                (strava_id, name, sport_type, start_date, duration, distance, avg_hr, avg_power)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                act["id"],
-                act["name"],
-                act["sport_type"],
-                act["start_date"],
-                act["moving_time"],
-                act["distance"],
-                act.get("average_heartrate"),
-                act.get("average_watts"),
-            ))
+                if not activities:
+                    break
 
-        total_activities += len(activities)
-        page += 1
+                for act in activities:
+                    cur.execute("""
+                        INSERT INTO activities
+                        (strava_id, name, sport_type, start_date, duration, distance, avg_hr, avg_power)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (strava_id) DO NOTHING
+                    """, (
+                        act["id"],
+                        act["name"],
+                        act["sport_type"],
+                        act["start_date"],
+                        act["moving_time"],
+                        act["distance"],
+                        act.get("average_heartrate"),
+                        act.get("average_watts"),
+                    ))
 
-    conn.commit()
-    conn.close()
+                total_activities += len(activities)
+                page += 1
 
     return {"synced_activities": total_activities}
 
+
+# ---------------------------
+# DB COUNT
+# ---------------------------
+
 @app.get("/db-count")
 def db_count():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM activities")
-    count = cursor.fetchone()[0]
-
-    conn.close()
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM activities")
+            count = cur.fetchone()[0]
 
     return {"db_activity_count": count}
