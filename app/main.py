@@ -359,3 +359,59 @@ def training_load():
         "current_CTL_42d": current_ctl,
         "form": form
     }
+
+from datetime import timedelta
+
+# ---------------------------
+# WEEKLY-LOAD
+# ---------------------------
+
+
+@app.get("/weekly-load")
+def weekly_load():
+
+    sport_factors = {
+        "Run": 1.2,
+        "Ride": 1.0,
+        "VirtualRide": 1.0,
+        "GravelRide": 1.0,
+        "MountainBikeRide": 1.0,
+        "Swim": 1.3
+    }
+
+    weekly = {}
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sport_type, duration, start_date
+                FROM activities
+            """)
+            rows = cur.fetchall()
+
+    for sport, duration, date in rows:
+
+        hours = duration / 3600
+        factor = sport_factors.get(sport, 0.7)
+        load = hours * factor
+
+        # pondělí jako začátek týdne
+        week_start = (date - timedelta(days=date.weekday())).date()
+
+        if week_start not in weekly:
+            weekly[week_start] = 0
+
+        weekly[week_start] += load
+
+    # seřadíme týdny
+    sorted_weeks = sorted(weekly.keys())
+
+    result = []
+
+    for w in sorted_weeks[-12:]:  # posledních 12 týdnů
+        result.append({
+            "week_start": str(w),
+            "load": round(weekly[w], 2)
+        })
+
+    return result
