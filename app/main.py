@@ -282,3 +282,80 @@ def summary():
         "total_km": total_km,
         "last_activity": last_activity
     }
+
+# ---------------------------
+# LOAD
+# ---------------------------
+
+
+@app.get("/load")
+def training_load():
+
+    sport_factors = {
+        "Run": 1.2,
+        "Ride": 1.0,
+        "VirtualRide": 1.0,
+        "GravelRide": 1.0,
+        "MountainBikeRide": 1.0,
+        "Swim": 1.3
+    }
+
+    activities = []
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sport_type, duration, start_date
+                FROM activities
+                ORDER BY start_date
+            """)
+            rows = cur.fetchall()
+
+    daily_load = {}
+
+    for sport, duration, date in rows:
+
+        hours = duration / 3600
+        factor = sport_factors.get(sport, 0.7)
+
+        load = hours * factor
+
+        day = date.date()
+
+        if day not in daily_load:
+            daily_load[day] = 0
+
+        daily_load[day] += load
+
+    # seřadíme dny
+    sorted_days = sorted(daily_load.keys())
+
+    atl_values = []
+    ctl_values = []
+
+    ATL_DAYS = 7
+    CTL_DAYS = 42
+
+    for i in range(len(sorted_days)):
+
+        recent_7 = sorted_days[max(0, i-ATL_DAYS+1):i+1]
+        recent_42 = sorted_days[max(0, i-CTL_DAYS+1):i+1]
+
+        atl = sum(daily_load[d] for d in recent_7) / ATL_DAYS
+        ctl = sum(daily_load[d] for d in recent_42) / CTL_DAYS
+
+        atl_values.append(atl)
+        ctl_values.append(ctl)
+
+    if not atl_values:
+        return {"error": "No data"}
+
+    current_atl = round(atl_values[-1], 2)
+    current_ctl = round(ctl_values[-1], 2)
+    form = round(current_ctl - current_atl, 2)
+
+    return {
+        "current_ATL_7d": current_atl,
+        "current_CTL_42d": current_ctl,
+        "form": form
+    }
