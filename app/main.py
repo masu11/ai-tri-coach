@@ -233,3 +233,52 @@ def db_count():
             count = cur.fetchone()[0]
 
     return {"db_activity_count": count}
+
+# ---------------------------
+# SUMMARY
+# ---------------------------
+
+@app.get("/summary")
+def summary():
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+
+            # celkový počet
+            cur.execute("SELECT COUNT(*) FROM activities")
+            total = cur.fetchone()[0]
+
+            # podle sportu
+            cur.execute("""
+                SELECT sport_type, COUNT(*)
+                FROM activities
+                GROUP BY sport_type
+            """)
+            by_sport = dict(cur.fetchall())
+
+            # celkový čas (v hodinách)
+            cur.execute("SELECT SUM(duration) FROM activities")
+            total_seconds = cur.fetchone()[0] or 0
+            total_hours = round(total_seconds / 3600, 1)
+
+            # celková vzdálenost (v km)
+            cur.execute("SELECT SUM(distance) FROM activities")
+            total_distance = cur.fetchone()[0] or 0
+            total_km = round(total_distance / 1000, 1)
+
+            # poslední aktivita
+            cur.execute("""
+                SELECT name, sport_type, start_date
+                FROM activities
+                ORDER BY start_date DESC
+                LIMIT 1
+            """)
+            last_activity = cur.fetchone()
+
+    return {
+        "total_activities": total,
+        "by_sport": by_sport,
+        "total_hours": total_hours,
+        "total_km": total_km,
+        "last_activity": last_activity
+    }
