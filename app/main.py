@@ -475,3 +475,40 @@ def weekly_load_by_sport():
         })
 
     return result
+
+# ---------------------------
+# DEBUG-SWIM-WEE
+# ---------------------------
+
+
+@app.get("/debug-swim-week")
+def debug_swim_week():
+
+    from datetime import date
+
+    target_week = date(2026, 1, 12)
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT name, duration, start_date
+                FROM activities
+                WHERE sport_type = 'Swim'
+                  AND start_date >= %s
+                  AND start_date < %s
+                ORDER BY duration DESC
+            """, (target_week, target_week + timedelta(days=7)))
+
+            rows = cur.fetchall()
+
+    result = []
+
+    for name, duration, start_date in rows:
+        result.append({
+            "name": name,
+            "duration_minutes": round(duration / 60, 1),
+            "duration_hours": round(duration / 3600, 2),
+            "date": str(start_date)
+        })
+
+    return result
