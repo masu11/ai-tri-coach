@@ -156,25 +156,39 @@ def get_valid_token():
 # ---------------------------
 
 @app.get("/sync")
-def full_sync():
+def incremental_sync():
 
     access_token = get_valid_token()
 
     if not access_token:
         return {"error": "Not authenticated"}
 
-    page = 1
-    total_activities = 0
-
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
 
+            # zjisti nejnovější datum v DB
+            cur.execute("SELECT MAX(start_date) FROM activities")
+            result = cur.fetchone()
+            last_date = result[0]
+
+            params = {"per_page": 200}
+
+            if last_date:
+                # převod na timestamp
+                timestamp = int(last_date.timestamp())
+                params["after"] = timestamp
+
+            total_new = 0
+            page = 1
+
             while True:
+
+                params["page"] = page
 
                 response = requests.get(
                     "https://www.strava.com/api/v3/athlete/activities",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    params={"per_page": 200, "page": page},
+                    params=params,
                 )
 
                 activities = response.json()
@@ -199,10 +213,11 @@ def full_sync():
                         act.get("average_watts"),
                     ))
 
-                total_activities += len(activities)
+                    total_new += 1
+
                 page += 1
 
-    return {"synced_activities": total_activities}
+    return {"new_activities_synced": total_new}
 
 
 # ---------------------------
