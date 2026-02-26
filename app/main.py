@@ -182,3 +182,15 @@ def full_sync():
     conn.close()
 
     return {"synced_activities": total_activities}
+
+@app.get("/db-count")
+def db_count():
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM activities")
+    count = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {"db_activity_count": count}
