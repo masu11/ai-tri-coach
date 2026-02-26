@@ -45,3 +45,30 @@ def callback(code: str):
     ACCESS_TOKEN = token_data["access_token"]
 
     return {"message": "Strava connected successfully"}
+
+@app.get("/sync")
+def full_sync():
+    global ACCESS_TOKEN
+
+    if not ACCESS_TOKEN:
+        return {"error": "Not authenticated"}
+
+    page = 1
+    total_activities = 0
+
+    while True:
+        response = requests.get(
+            "https://www.strava.com/api/v3/athlete/activities",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            params={"per_page": 200, "page": page},
+        )
+
+        activities = response.json()
+
+        if not activities:
+            break
+
+        total_activities += len(activities)
+        page += 1
+
+    return {"total_activities": total_activities}
