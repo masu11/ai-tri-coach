@@ -415,3 +415,63 @@ def weekly_load():
         })
 
     return result
+
+# ---------------------------
+# WEEKLY-LOAD-BY-SPORT
+# ---------------------------
+
+
+@app.get("/weekly-load-by-sport")
+def weekly_load_by_sport():
+
+    sport_factors = {
+        "Run": 1.2,
+        "Ride": 1.0,
+        "VirtualRide": 1.0,
+        "GravelRide": 1.0,
+        "MountainBikeRide": 1.0,
+        "Swim": 1.3
+    }
+
+    weekly = {}
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT sport_type, duration, start_date
+                FROM activities
+            """)
+            rows = cur.fetchall()
+
+    for sport, duration, date in rows:
+
+        hours = duration / 3600
+        factor = sport_factors.get(sport, 0.7)
+        load = hours * factor
+
+        week_start = (date - timedelta(days=date.weekday())).date()
+
+        if week_start not in weekly:
+            weekly[week_start] = {}
+
+        if sport not in weekly[week_start]:
+            weekly[week_start][sport] = 0
+
+        weekly[week_start][sport] += load
+
+    sorted_weeks = sorted(weekly.keys())
+
+    result = []
+
+    for w in sorted_weeks[-8:]:  # posledních 8 týdnů
+        sport_data = {
+            sport: round(load, 2)
+            for sport, load in weekly[w].items()
+        }
+
+        result.append({
+            "week_start": str(w),
+            "sports": sport_data
+        })
+
+    return result
