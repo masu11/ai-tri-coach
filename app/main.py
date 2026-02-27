@@ -850,3 +850,100 @@ def garmin_full_sync():
 
     except Exception as e:
         return {"error": str(e)}
+
+# ---------------------------
+# READINESS SCORE
+# ---------------------------
+
+@app.get("/readiness")
+def readiness_score():
+
+    today = datetime.utcnow().date()
+    yesterday = today - timedelta(days=1)
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+
+            # posledních 7 dní Garmin dat
+            cur.execute("""
+                SELECT sleep_seconds, resting_hr, avg_hrv, stress_avg
+                FROM garmin_daily_metrics
+                WHERE date >= %s
+                ORDER BY date
+            """, (yesterday - timedelta(days=7),))
+
+            rows = cur.fetchall()
+
+    if not rows:
+        return {"error": "No Garmin data"}
+
+    sleeps = []
+    rhrs = []
+    hrvs = []
+    stress_vals = []
+
+    for sleep, rhr, hrv, stress in rows:
+        if sleep:
+            sleeps.append(sleep / 3600)
+        if rhr:
+            rhrs.append(rhr)
+        if hrv:
+            hrvs.append(hrv)
+        if stress:
+            stress_vals.append(stress)
+
+    score = 70
+
+    # ---- Sleep ----
+    if sleeps:
+        last_sleep = sleeps[-1]
+        if last_sleep >= 7.5:
+            score += 10
+        elif last_sleep >= 6:
+            score += 5
+        else:
+            score -= 10
+
+    # ---- HRV ----
+    if len(hrvs) >= 3:
+        avg_hrv = sum(hrvs[:-1]) / max(1, len(hrvs[:-1]))
+        last_hrv = hrvs[-1]
+        if last_hrv > avg_hrv * 1.05:
+            score += 10
+        elif last_hrv < avg_hrv * 0.95:
+            score -= 10
+
+    # ---- RHR ----
+    if len(rhrs) >= 3:
+        avg_rhr = sum(rhrs[:-1]) / max(1, len(rhrs[:-1]))
+        last_rhr = rhrs[-1]
+        if last_rhr < avg_rhr:
+            score += 5
+        elif last_rhr > avg_rhr + 3:
+            score -= 10
+
+    # ---- Stress ----
+    if stress_vals:
+        last_stress = stress_vals[-1]
+        if last_stress < 25:
+            score += 5
+        elif last_stress > 35:
+            score -= 10
+
+    score = max(0, min(100, score))
+
+    # ---- Recommendation ----
+    if score >= 85:
+        recommendation = "Hard intervals OK"
+    elif score >= 70:
+        recommendation = "Quality training"
+    elif score >= 50:
+        recommendation = "Moderate / tempo"
+    else:
+        recommendation = "Recovery / easy day"
+
+    return {
+        "date": str(yesterday),
+        "readiness_score": score,
+        "recommendation": recommendation
+    }
