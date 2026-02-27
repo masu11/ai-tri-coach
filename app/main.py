@@ -1068,3 +1068,116 @@ def coach_export():
         result["analytics_error"] = str(e)
 
     return result
+
+# ---------------------------
+# PERFORMANCE EXPORT (30 DAYS HISTORY)
+# ---------------------------
+
+@app.get("/performance-export")
+def performance_export():
+
+    from datetime import date, timedelta
+    import psycopg
+
+    today = date.today()
+    start_date = today - timedelta(days=30)
+
+    result = {}
+
+    sport_factors = {
+        "Run": 1.2,
+        "Ride": 1.0,
+        "VirtualRide": 1.0,
+        "GravelRide": 1.0,
+        "MountainBikeRide": 1.0,
+        "Swim": 1.3
+    }
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+
+            # 1️⃣ Activities last 30 days
+            cur.execute("""
+                SELECT sport_type, duration, start_date
+                FROM activities
+                WHERE start_date >= %s
+                ORDER BY start_date
+            """, (start_date,))
+            activities = cur.fetchall()
+
+            # 2️⃣ Garmin metrics last 30 days
+            cur.execute("""
+                SELECT date, sleep_seconds, resting_hr, avg_hrv
+                FROM garmin_daily_metrics
+                WHERE date >= %s
+                ORDER BY date
+            """, (start_date,))
+            garmin = cur.fetchall()
+
+    # ---- DAILY LOAD CALC ----
+    daily_load = {}
+
+    for sport, duration, dt in activities:
+        day = dt.date()
+        hours = duration / 3600
+        factor = sport_factors.get(sport, 0.7)
+        load = hours * factor
+
+        if day not in daily_load:
+            daily_load[day] = 0
+        daily_load[day] += load
+
+    # fill empty days
+    current = start_date
+    while current <= today:
+        if current not in daily_load:
+            daily_load[current] = 0
+        current += timedelta(days=1)
+
+    sorted_days = sorted(daily_load.keys())
+
+    # ---- ATL / CTL TREND ----
+    ATL_DAYS = 7
+    CTL_DAYS = 42
+
+    atl_trend = []
+    ctl_trend = []
+
+    for i in range(len(sorted_days)):
+        recent_7 = sorted_days[max(0, i-ATL_DAYS+1):i+1]
+        recent_42 = sorted_days[max(0, i-CTL_DAYS+1):i+1]
+
+        atl = sum(daily_load[d] for d in recent_7) / ATL_DAYS
+        ctl = sum(daily_load[d] for d in recent_42) / CTL_DAYS
+
+        atl_trend.append({
+            "date": str(sorted_days[i]),
+            "atl": round(atl, 2)
+        })
+
+        ctl_trend.append({
+            "date": str(sorted_days[i]),
+            "ctl": round(ctl, 2)
+        })
+
+    # ---- FORMAT OUTPUT ----
+
+    result["daily_load_30d"] = [
+        {"date": str(d), "load": round(daily_load[d], 2)}
+        for d in sorted_days
+    ]
+
+    result["atl_trend_30d"] = atl_trend
+    result["ctl_trend_30d"] = ctl_trend
+
+    result["garmin_30d"] = [
+        {
+            "date": str(d),
+            "sleep_h": round(s/3600, 2) if s else None,
+            "rhr": r,
+            "hrv": h
+        }
+        for d, s, r, h in garmin
+    ]
+
+    return result
