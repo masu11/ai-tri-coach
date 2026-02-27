@@ -54,7 +54,7 @@ def init_db():
                     body_battery INTEGER,
                     stress_avg INTEGER
                 )
-""")
+            """)
 
 init_db()
 
