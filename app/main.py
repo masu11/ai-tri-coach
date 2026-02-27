@@ -20,10 +20,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # DATABASE INIT
 # ---------------------------
 
+# ---------------------------
+# DATABASE INIT
+# ---------------------------
+
 def init_db():
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
 
+            # TOKENS
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS tokens (
                     id SERIAL PRIMARY KEY,
@@ -33,6 +38,7 @@ def init_db():
                 )
             """)
 
+            # ACTIVITIES
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS activities (
                     id SERIAL PRIMARY KEY,
@@ -47,7 +53,10 @@ def init_db():
                 )
             """)
 
-             cur.execute("""
+            # ---------------------------
+            # GARMIN WELLNESS DATA
+            # ---------------------------
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
                     date DATE PRIMARY KEY,
                     sleep_seconds INTEGER,
@@ -57,7 +66,6 @@ def init_db():
                     stress_avg INTEGER
                 )
             """)
-
 init_db()
 
 
