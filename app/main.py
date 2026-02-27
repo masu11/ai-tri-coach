@@ -947,3 +947,62 @@ def readiness_score():
         "readiness_score": score,
         "recommendation": recommendation
     }
+
+# ---------------------------
+# GENERATE DAILY AI REPORT
+# ---------------------------
+
+@app.get("/generate-report")
+def generate_report():
+
+    import requests
+
+    base_url = os.getenv("BASE_URL")  # např. https://tvuj-app.onrender.com
+
+    daily = requests.get(f"{base_url}/daily-report").json()
+    readiness = requests.get(f"{base_url}/readiness").json()
+    weekly = requests.get(f"{base_url}/weekly-load").json()
+
+    # ---- AI COMMENTARY ----
+
+    score = readiness.get("readiness_score")
+    recommendation = readiness.get("recommendation")
+
+    yesterday_load = daily.get("yesterday_load")
+    form = daily.get("form")
+    week_change = daily.get("week_change_pct")
+
+    comment = f"""
+📅 DAILY TRI COACH REPORT
+
+Readiness score: {score}
+Recommendation: {recommendation}
+
+Yesterday load: {yesterday_load}
+Form (CTL-ATL): {form}
+
+Week change: {week_change} %
+
+"""
+
+    # ---- Simple coaching logic ----
+
+    if score >= 85:
+        comment += "\nYou are very fresh. Hard session recommended."
+    elif score >= 70:
+        comment += "\nGood condition. Quality session fits."
+    elif score >= 50:
+        comment += "\nModerate fatigue. Keep it controlled."
+    else:
+        comment += "\nRecovery day recommended."
+
+    # Weekly insight
+    if week_change and week_change > 15:
+        comment += "\n⚠ Weekly load increased significantly."
+    elif week_change and week_change < -20:
+        comment += "\nRecovery week in progress."
+
+    return {
+        "date": daily.get("date"),
+        "report": comment
+    }
