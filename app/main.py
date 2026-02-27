@@ -20,10 +20,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # DATABASE INIT
 # ---------------------------
 
-# ---------------------------
-# DATABASE INIT
-# ---------------------------
-
 def init_db():
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
