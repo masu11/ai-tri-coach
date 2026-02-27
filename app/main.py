@@ -949,48 +949,116 @@ def readiness_score():
     }
 
 # ---------------------------
-# GENERATE-AI-REPORT
+# HTML DAILY + WEEKLY REPORT (NO AI)
 # ---------------------------
-
 
 @app.get("/generate-ai-report")
 def generate_ai_report():
 
-    try:
-        import requests
-        import smtplib
-        from email.mime.text import MIMEText
-        from openai import OpenAI
-        import os
+    import requests
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    import os
 
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        base_url = os.getenv("BASE_URL")
+    base_url = os.getenv("BASE_URL")
 
-        daily = requests.get(f"{base_url}/daily-report").json()
-        readiness = requests.get(f"{base_url}/readiness").json()
-        weekly = requests.get(f"{base_url}/weekly-load").json()
+    # ---- FETCH DATA ----
+    daily = requests.get(f"{base_url}/daily-report").json()
+    readiness = requests.get(f"{base_url}/readiness").json()
+    weekly = requests.get(f"{base_url}/weekly-load").json()
 
-        prompt = f"""
-Daily load: {daily}
-Readiness: {readiness}
-Weekly: {weekly}
-"""
+    # ---------------------------
+    # SVG WEEKLY LOAD GRAPH
+    # ---------------------------
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a coach."},
-                {"role": "user", "content": prompt}
-            ],
+    max_load = max(w["load"] for w in weekly) if weekly else 1
+    bars = ""
+
+    bar_width = 30
+    spacing = 15
+    height_scale = 200 / max_load
+
+    for i, week in enumerate(weekly):
+        bar_height = week["load"] * height_scale
+        x = i * (bar_width + spacing)
+        y = 220 - bar_height
+
+        bars += f"""
+        <rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}"
+              fill="#2E86C1" />
+        """
+
+    svg_chart = f"""
+    <svg width="600" height="250">
+        {bars}
+    </svg>
+    """
+
+    # ---------------------------
+    # HTML CONTENT
+    # ---------------------------
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial;">
+
+        <h2>🏊‍♂️ Denní report – {daily.get("date")}</h2>
+
+        <h3>Včerejší aktivity</h3>
+        <ul>
+            {''.join([
+                f"<li>{a['name']} – {a['duration_min']} min – load {a['load']}</li>"
+                for a in daily.get("yesterday_activities", [])
+            ])}
+        </ul>
+
+        <p><strong>Včerejší load:</strong> {daily.get("yesterday_load")}</p>
+        <p><strong>ATL (7d):</strong> {daily.get("ATL_7d")}</p>
+        <p><strong>CTL (42d):</strong> {daily.get("CTL_42d")}</p>
+        <p><strong>Form:</strong> {daily.get("form")}</p>
+
+        <h3>Readiness</h3>
+        <p><strong>Skóre:</strong> {readiness.get("readiness_score")}</p>
+        <p><strong>Doporučení:</strong> {readiness.get("recommendation")}</p>
+
+        <hr>
+
+        <h2>📊 Týdenní přehled</h2>
+        <p>Aktuální týden: {daily.get("current_week_load")}</p>
+        <p>Předchozí týden: {daily.get("previous_week_load")}</p>
+        <p>Změna: {daily.get("week_change_pct")} %</p>
+
+        <h3>Týdenní load (posledních 12 týdnů)</h3>
+        {svg_chart}
+
+    </body>
+    </html>
+    """
+
+    # ---------------------------
+    # EMAIL SEND
+    # ---------------------------
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Triathlon Report"
+    msg["From"] = os.getenv("EMAIL_FROM")
+    msg["To"] = os.getenv("EMAIL_TO")
+
+    msg.attach(MIMEText(html_content, "html"))
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(
+            os.getenv("EMAIL_FROM"),
+            os.getenv("EMAIL_PASSWORD")
         )
+        server.send_message(msg)
 
-        ai_text = response.choices[0].message.content
-
-        return {"ai_report": ai_text}
-
-    except Exception as e:
-        return {"ERROR": str(e)}
-        
+    return {
+        "status": "Report generated and email sent",
+        "date": daily.get("date")
+    }        
 # ---------------------------
 # COACH EXPORT (FULL LIVE SYNC)
 # ---------------------------
