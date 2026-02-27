@@ -750,44 +750,25 @@ def garmin_full_sync():
         api = Garmin(email, password)
         api.login()
 
-        # ---- STATS ----
         stats = api.get_stats(yesterday.isoformat())
         hrv = api.get_hrv_data(yesterday.isoformat())
-        
+
         sleep_seconds = None
         resting_hr = None
         body_battery = None
         stress_avg = None
         vo2max_run = None
-        vo2max_bike = None
-        
+
         if isinstance(stats, dict):
             sleep_seconds = stats.get("totalSleepSeconds")
             resting_hr = stats.get("restingHeartRate")
             body_battery = stats.get("bodyBatteryAverage")
             stress_avg = stats.get("averageStressLevel")
             vo2max_run = stats.get("vo2MaxValue")
-        
-        avg_hrv = None
-        if isinstance(hrv, dict):
-            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
-
-        # ---- SAFE EXTRACTION ----
-
-        sleep_seconds = stats.get("totalSleepSeconds") if isinstance(stats, dict) else None
-        resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
-        body_battery = stats.get("bodyBatteryAverage") if isinstance(stats, dict) else None
-        stress_avg = stats.get("averageStressLevel") if isinstance(stats, dict) else None
 
         avg_hrv = None
         if isinstance(hrv, dict):
             avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
-
-        vo2max_run = None
-        vo2max_bike = None
-        if isinstance(vo2, dict):
-            vo2max_run = vo2.get("running")
-            vo2max_bike = vo2.get("cycling")
 
         # weight
         weight = None
@@ -802,9 +783,9 @@ def garmin_full_sync():
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO garmin_daily_metrics
-                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery, stress_avg,
-                     vo2max_run, vo2max_bike, weight)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery,
+                     stress_avg, vo2max_run, weight)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (date) DO UPDATE SET
                         sleep_seconds = EXCLUDED.sleep_seconds,
                         resting_hr = EXCLUDED.resting_hr,
@@ -812,7 +793,6 @@ def garmin_full_sync():
                         body_battery = EXCLUDED.body_battery,
                         stress_avg = EXCLUDED.stress_avg,
                         vo2max_run = EXCLUDED.vo2max_run,
-                        vo2max_bike = EXCLUDED.vo2max_bike,
                         weight = EXCLUDED.weight
                 """, (
                     yesterday,
@@ -822,7 +802,6 @@ def garmin_full_sync():
                     body_battery,
                     stress_avg,
                     vo2max_run,
-                    vo2max_bike,
                     weight
                 ))
 
@@ -832,7 +811,6 @@ def garmin_full_sync():
             "rhr": resting_hr,
             "hrv": avg_hrv,
             "vo2_run": vo2max_run,
-            "vo2_bike": vo2max_bike,
             "weight": weight
         }
 
