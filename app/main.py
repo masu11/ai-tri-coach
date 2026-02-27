@@ -949,60 +949,63 @@ def readiness_score():
     }
 
 # ---------------------------
-# GENERATE DAILY AI REPORT
+# AI DAILY + WEEKLY REPORT
 # ---------------------------
 
-@app.get("/generate-report")
-def generate_report():
+@app.get("/generate-ai-report")
+def generate_ai_report():
 
     import requests
+    import openai
+    from datetime import timedelta
 
-    base_url = os.getenv("BASE_URL")  # např. https://tvuj-app.onrender.com
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("BASE_URL")
 
+    # --- Fetch internal endpoints ---
     daily = requests.get(f"{base_url}/daily-report").json()
     readiness = requests.get(f"{base_url}/readiness").json()
     weekly = requests.get(f"{base_url}/weekly-load").json()
 
-    # ---- AI COMMENTARY ----
+    # --- Prepare structured input for AI ---
+    prompt = f"""
+You are an experienced triathlon coach.
 
-    score = readiness.get("readiness_score")
-    recommendation = readiness.get("recommendation")
+Athlete daily data:
+Date: {daily.get("date")}
+Yesterday load: {daily.get("yesterday_load")}
+ATL: {daily.get("ATL_7d")}
+CTL: {daily.get("CTL_42d")}
+Form: {daily.get("form")}
+Week change %: {daily.get("week_change_pct")}
 
-    yesterday_load = daily.get("yesterday_load")
-    form = daily.get("form")
-    week_change = daily.get("week_change_pct")
+Readiness score: {readiness.get("readiness_score")}
+Recommendation: {readiness.get("recommendation")}
 
-    comment = f"""
-📅 DAILY TRI COACH REPORT
+Last weeks load:
+{weekly}
 
-Readiness score: {score}
-Recommendation: {recommendation}
-
-Yesterday load: {yesterday_load}
-Form (CTL-ATL): {form}
-
-Week change: {week_change} %
-
+Tasks:
+1) Comment on yesterday's training.
+2) Evaluate fatigue vs fitness.
+3) Give clear recommendation for today.
+4) Give short weekly summary (load trend, risk of overload, recovery status).
+5) Keep it concise but professional.
 """
 
-    # ---- Simple coaching logic ----
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a professional endurance coach."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+    )
 
-    if score >= 85:
-        comment += "\nYou are very fresh. Hard session recommended."
-    elif score >= 70:
-        comment += "\nGood condition. Quality session fits."
-    elif score >= 50:
-        comment += "\nModerate fatigue. Keep it controlled."
-    else:
-        comment += "\nRecovery day recommended."
-
-    # Weekly insight
-    if week_change and week_change > 15:
-        comment += "\n⚠ Weekly load increased significantly."
-    elif week_change and week_change < -20:
-        comment += "\nRecovery week in progress."
+    ai_text = response["choices"][0]["message"]["content"]
 
     return {
         "date": daily.get("date"),
-        "report": comment
+        "readiness_score": readiness.get("readiness_score"),
+        "ai_report": ai_text
     }
