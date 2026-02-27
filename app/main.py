@@ -45,6 +45,17 @@ def init_db():
                 )
             """)
 
+             cur.execute("""
+                CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
+                    date DATE PRIMARY KEY,
+                    sleep_seconds INTEGER,
+                    resting_hr INTEGER,
+                    avg_hrv DOUBLE PRECISION,
+                    body_battery INTEGER,
+                    stress_avg INTEGER
+                )
+""")
+
 init_db()
 
 
