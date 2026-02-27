@@ -4,9 +4,8 @@ import os
 import requests
 import time
 import psycopg
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from garminconnect import Garmin
-from datetime import date
 
 app = FastAPI()
 
