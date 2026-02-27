@@ -377,7 +377,6 @@ def training_load():
         "form": form
     }
 
-from datetime import timedelta
 
 # ---------------------------
 # WEEKLY-LOAD
