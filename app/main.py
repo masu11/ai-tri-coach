@@ -51,16 +51,20 @@ def init_db():
             # ---------------------------
             # GARMIN WELLNESS DATA
             # ---------------------------
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
-                    date DATE PRIMARY KEY,
-                    sleep_seconds INTEGER,
-                    resting_hr INTEGER,
-                    avg_hrv DOUBLE PRECISION,
-                    body_battery INTEGER,
-                    stress_avg INTEGER
-                )
-            """)
+           cur.execute("""
+    CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
+        date DATE PRIMARY KEY,
+        sleep_seconds INTEGER,
+        resting_hr INTEGER,
+        avg_hrv DOUBLE PRECISION,
+        body_battery INTEGER,
+        stress_avg INTEGER,
+        vo2max_run DOUBLE PRECISION,
+        vo2max_bike DOUBLE PRECISION,
+        weight DOUBLE PRECISION
+    )
+""")
+        
 init_db()
 
 
@@ -726,6 +730,95 @@ def garmin_sync():
             "avg_hrv": avg_hrv,
             "body_battery": body_battery,
             "stress_avg": stress_avg
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+# ---------------------------
+# GARMIN FULL SYNC
+# ---------------------------
+
+@app.get("/garmin-full-sync")
+def garmin_full_sync():
+
+    email = os.getenv("GARMIN_EMAIL")
+    password = os.getenv("GARMIN_PASSWORD")
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    try:
+        api = Garmin(email, password)
+        api.login()
+
+        # ---- STATS ----
+        stats = api.get_stats(yesterday.isoformat())
+        hrv = api.get_hrv_data(yesterday.isoformat())
+        vo2 = api.get_vo2max()
+
+        # ---- SAFE EXTRACTION ----
+
+        sleep_seconds = stats.get("totalSleepSeconds") if isinstance(stats, dict) else None
+        resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
+        body_battery = stats.get("bodyBatteryAverage") if isinstance(stats, dict) else None
+        stress_avg = stats.get("averageStressLevel") if isinstance(stats, dict) else None
+
+        avg_hrv = None
+        if isinstance(hrv, dict):
+            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
+
+        vo2max_run = None
+        vo2max_bike = None
+        if isinstance(vo2, dict):
+            vo2max_run = vo2.get("running")
+            vo2max_bike = vo2.get("cycling")
+
+        # weight
+        weight = None
+        try:
+            body = api.get_body_composition(yesterday.isoformat(), yesterday.isoformat())
+            if body and isinstance(body, list) and len(body) > 0:
+                weight = body[0].get("weight")
+        except:
+            pass
+
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO garmin_daily_metrics
+                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery, stress_avg,
+                     vo2max_run, vo2max_bike, weight)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (date) DO UPDATE SET
+                        sleep_seconds = EXCLUDED.sleep_seconds,
+                        resting_hr = EXCLUDED.resting_hr,
+                        avg_hrv = EXCLUDED.avg_hrv,
+                        body_battery = EXCLUDED.body_battery,
+                        stress_avg = EXCLUDED.stress_avg,
+                        vo2max_run = EXCLUDED.vo2max_run,
+                        vo2max_bike = EXCLUDED.vo2max_bike,
+                        weight = EXCLUDED.weight
+                """, (
+                    yesterday,
+                    sleep_seconds,
+                    resting_hr,
+                    avg_hrv,
+                    body_battery,
+                    stress_avg,
+                    vo2max_run,
+                    vo2max_bike,
+                    weight
+                ))
+
+        return {
+            "date": str(yesterday),
+            "sleep_h": round(sleep_seconds / 3600, 2) if sleep_seconds else None,
+            "rhr": resting_hr,
+            "hrv": avg_hrv,
+            "vo2_run": vo2max_run,
+            "vo2_bike": vo2max_bike,
+            "weight": weight
         }
 
     except Exception as e:
