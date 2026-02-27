@@ -753,12 +753,24 @@ def garmin_full_sync():
         # ---- STATS ----
         stats = api.get_stats(yesterday.isoformat())
         hrv = api.get_hrv_data(yesterday.isoformat())
-
+        
+        sleep_seconds = None
+        resting_hr = None
+        body_battery = None
+        stress_avg = None
         vo2max_run = None
         vo2max_bike = None
-
+        
         if isinstance(stats, dict):
-        vo2max_run = stats.get("vo2MaxValue")
+            sleep_seconds = stats.get("totalSleepSeconds")
+            resting_hr = stats.get("restingHeartRate")
+            body_battery = stats.get("bodyBatteryAverage")
+            stress_avg = stats.get("averageStressLevel")
+            vo2max_run = stats.get("vo2MaxValue")
+        
+        avg_hrv = None
+        if isinstance(hrv, dict):
+            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
 
         # ---- SAFE EXTRACTION ----
 
