@@ -957,22 +957,21 @@ def generate_ai_report():
 
     import requests
     import openai
-    from datetime import timedelta
+    import smtplib
+    from email.mime.text import MIMEText
 
     openai.api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("BASE_URL")
 
-    # --- Fetch internal endpoints ---
+    # ---- fetch data ----
     daily = requests.get(f"{base_url}/daily-report").json()
     readiness = requests.get(f"{base_url}/readiness").json()
     weekly = requests.get(f"{base_url}/weekly-load").json()
 
-    # --- Prepare structured input for AI ---
     prompt = f"""
 You are an experienced triathlon coach.
 
-Athlete daily data:
-Date: {daily.get("date")}
+Daily data:
 Yesterday load: {daily.get("yesterday_load")}
 ATL: {daily.get("ATL_7d")}
 CTL: {daily.get("CTL_42d")}
@@ -982,15 +981,14 @@ Week change %: {daily.get("week_change_pct")}
 Readiness score: {readiness.get("readiness_score")}
 Recommendation: {readiness.get("recommendation")}
 
-Last weeks load:
+Weekly loads:
 {weekly}
 
-Tasks:
-1) Comment on yesterday's training.
-2) Evaluate fatigue vs fitness.
-3) Give clear recommendation for today.
-4) Give short weekly summary (load trend, risk of overload, recovery status).
-5) Keep it concise but professional.
+Give:
+- Comment on yesterday
+- Fatigue evaluation
+- Recommendation for today
+- Short weekly summary
 """
 
     response = openai.ChatCompletion.create(
@@ -1004,8 +1002,25 @@ Tasks:
 
     ai_text = response["choices"][0]["message"]["content"]
 
+    # ---------------------------
+    # EMAIL SEND SECTION  ← TADY
+    # ---------------------------
+
+    msg = MIMEText(ai_text)
+    msg["Subject"] = "Daily AI Tri Coach Report"
+    msg["From"] = os.getenv("EMAIL_FROM")
+    msg["To"] = os.getenv("EMAIL_TO")
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(
+            os.getenv("EMAIL_FROM"),
+            os.getenv("EMAIL_PASSWORD")
+        )
+        server.send_message(msg)
+
+    # ---- return for manual testing ----
     return {
         "date": daily.get("date"),
-        "readiness_score": readiness.get("readiness_score"),
         "ai_report": ai_text
     }
