@@ -948,19 +948,16 @@ def readiness_score():
         "recommendation": recommendation
     }
 
-# ---------------------------
-# AI DAILY + WEEKLY REPORT
-# ---------------------------
-
 @app.get("/generate-ai-report")
 def generate_ai_report():
 
     import requests
-    import openai
     import smtplib
     from email.mime.text import MIMEText
+    from openai import OpenAI
+    import os
 
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     base_url = os.getenv("BASE_URL")
 
     # ---- fetch data ----
@@ -991,7 +988,7 @@ Give:
 - Short weekly summary
 """
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a professional endurance coach."},
@@ -1000,12 +997,9 @@ Give:
         temperature=0.7,
     )
 
-    ai_text = response["choices"][0]["message"]["content"]
+    ai_text = response.choices[0].message.content
 
-    # ---------------------------
-    # EMAIL SEND SECTION  ← TADY
-    # ---------------------------
-
+    # ---- EMAIL ----
     msg = MIMEText(ai_text)
     msg["Subject"] = "Daily AI Tri Coach Report"
     msg["From"] = os.getenv("EMAIL_FROM")
@@ -1019,7 +1013,6 @@ Give:
         )
         server.send_message(msg)
 
-    # ---- return for manual testing ----
     return {
         "date": daily.get("date"),
         "ai_report": ai_text
