@@ -1024,3 +1024,47 @@ Give:
         "date": daily.get("date"),
         "ai_report": ai_text
     }
+
+# ---------------------------
+# COACH EXPORT (FULL LIVE SYNC)
+# ---------------------------
+
+@app.get("/coach-export")
+def coach_export():
+
+    import requests
+
+    base_url = os.getenv("BASE_URL")
+
+    result = {}
+
+    # ---- 1️⃣ STRAVA SYNC ----
+    try:
+        sync_res = requests.get(f"{base_url}/sync", timeout=60).json()
+        result["strava_sync"] = sync_res
+    except Exception as e:
+        result["strava_sync_error"] = str(e)
+
+    # ---- 2️⃣ GARMIN SYNC ----
+    try:
+        garmin_res = requests.get(f"{base_url}/garmin-full-sync", timeout=60).json()
+        result["garmin_sync"] = garmin_res
+    except Exception as e:
+        result["garmin_sync_error"] = str(e)
+
+    # ---- 3️⃣ FETCH ANALYTICS ----
+    try:
+        daily = requests.get(f"{base_url}/daily-report").json()
+        readiness = requests.get(f"{base_url}/readiness").json()
+        weekly = requests.get(f"{base_url}/weekly-load").json()
+        load = requests.get(f"{base_url}/load").json()
+
+        result["daily_report"] = daily
+        result["readiness"] = readiness
+        result["load_status"] = load
+        result["weekly_load"] = weekly
+
+    except Exception as e:
+        result["analytics_error"] = str(e)
+
+    return result
