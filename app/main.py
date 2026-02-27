@@ -674,12 +674,30 @@ def garmin_sync():
         body = api.get_body_battery(yesterday.isoformat())
         stress = api.get_stress_data(yesterday.isoformat())
 
-        sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
-        resting_hr = rhr.get("restingHeartRate")
-        avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
-        body_battery = body.get("bodyBattery", [{}])[-1].get("bodyBatteryLevel") if body.get("bodyBattery") else None
-        stress_avg = stress.get("overallStressLevel")
-
+         # ---- SAFE EXTRACTION ----
+        
+        sleep_seconds = None
+        if isinstance(sleep, dict):
+            sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
+        
+        resting_hr = None
+        if isinstance(rhr, dict):
+            resting_hr = rhr.get("restingHeartRate")
+        
+        avg_hrv = None
+        if isinstance(hrv, dict):
+            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
+        
+        body_battery = None
+        if isinstance(body, dict):
+            bb = body.get("bodyBattery")
+            if isinstance(bb, list) and bb:
+                body_battery = bb[-1].get("bodyBatteryLevel")
+        
+        stress_avg = None
+        if isinstance(stress, dict):
+            stress_avg = stress.get("overallStressLevel")
+    
         with psycopg.connect(DATABASE_URL) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
