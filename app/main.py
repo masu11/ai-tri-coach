@@ -954,28 +954,112 @@ def readiness_score():
 
 @app.get("/generate-ai-report")
 def generate_ai_report():
-    try:
-        import requests
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        import os
 
-        base_url = os.getenv("BASE_URL")
+    import requests
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
 
-        daily = requests.get(f"{base_url}/daily-report").json()
-        readiness = requests.get(f"{base_url}/readiness").json()
-        weekly = requests.get(f"{base_url}/weekly-load").json()
+    base_url = os.getenv("BASE_URL")
 
-        return {
-            "daily": daily,
-            "readiness": readiness,
-            "weekly": weekly
-        }
+    daily = requests.get(f"{base_url}/daily-report").json()
+    readiness = requests.get(f"{base_url}/readiness").json()
+    weekly = requests.get(f"{base_url}/weekly-load").json()
 
-    except Exception as e:
-        return {"ERROR": str(e)}
+    # ---- HTML REPORT ----
 
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; }}
+            th {{ background-color: #f2f2f2; }}
+        </style>
+    </head>
+    <body>
+
+    <h2>📊 Denní report – {daily.get("date")}</h2>
+
+    <h3>Včerejší aktivity</h3>
+    <table>
+        <tr>
+            <th>Název</th>
+            <th>Sport</th>
+            <th>Minuty</th>
+            <th>Load</th>
+        </tr>
+    """
+
+    for act in daily.get("yesterday_activities", []):
+        html += f"""
+        <tr>
+            <td>{act["name"]}</td>
+            <td>{act["sport"]}</td>
+            <td>{act["duration_min"]}</td>
+            <td>{act["load"]}</td>
+        </tr>
+        """
+
+    html += f"""
+    </table>
+
+    <h3>Tréninkový stav</h3>
+    <ul>
+        <li>ATL (7d): {daily.get("ATL_7d")}</li>
+        <li>CTL (42d): {daily.get("CTL_42d")}</li>
+        <li>Form: {daily.get("form")}</li>
+        <li>Týdenní změna: {daily.get("week_change_pct")} %</li>
+    </ul>
+
+    <h3>Readiness</h3>
+    <ul>
+        <li>Score: {readiness.get("readiness_score")}</li>
+        <li>Doporučení: {readiness.get("recommendation")}</li>
+    </ul>
+
+    <h3>Vývoj týdenního loadu</h3>
+    <table>
+        <tr>
+            <th>Týden od</th>
+            <th>Load</th>
+        </tr>
+    """
+
+    for w in weekly:
+        html += f"""
+        <tr>
+            <td>{w["week_start"]}</td>
+            <td>{w["load"]}</td>
+        </tr>
+        """
+
+    html += """
+    </table>
+
+    </body>
+    </html>
+    """
+
+    # ---- EMAIL ----
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "📊 AI Tri Coach – Denní report"
+    msg["From"] = os.getenv("EMAIL_FROM")
+    msg["To"] = os.getenv("EMAIL_TO")
+
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(
+            os.getenv("EMAIL_FROM"),
+            os.getenv("EMAIL_PASSWORD")
+        )
+        server.send_message(msg)
+
+    return {"status": "Report sent successfully"}
 # ---------------------------
 # COACH EXPORT (FULL LIVE SYNC)
 # ---------------------------
