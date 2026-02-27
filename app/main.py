@@ -5,6 +5,8 @@ import requests
 import time
 import psycopg
 from datetime import datetime, timedelta
+from garminconnect import Garmin
+from datetime import date
 
 app = FastAPI()
 
@@ -646,3 +648,65 @@ def daily_report():
         "previous_week_load": round(previous_week_load, 2),
         "week_change_pct": change_pct
     }
+
+# ---------------------------
+# GARMIN SYNC
+# ---------------------------
+
+@app.get("/garmin-sync")
+def garmin_sync():
+
+    email = os.getenv("GARMIN_EMAIL")
+    password = os.getenv("GARMIN_PASSWORD")
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    try:
+        api = Garmin(email, password)
+        api.login()
+
+        sleep = api.get_sleep_data(yesterday.isoformat())
+        rhr = api.get_rhr_day(yesterday.isoformat())
+        hrv = api.get_hrv_data(yesterday.isoformat())
+        body = api.get_body_battery(yesterday.isoformat())
+        stress = api.get_stress_data(yesterday.isoformat())
+
+        sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
+        resting_hr = rhr.get("restingHeartRate")
+        avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
+        body_battery = body.get("bodyBattery", [{}])[-1].get("bodyBatteryLevel") if body.get("bodyBattery") else None
+        stress_avg = stress.get("overallStressLevel")
+
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO garmin_daily_metrics
+                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery, stress_avg)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (date) DO UPDATE SET
+                        sleep_seconds = EXCLUDED.sleep_seconds,
+                        resting_hr = EXCLUDED.resting_hr,
+                        avg_hrv = EXCLUDED.avg_hrv,
+                        body_battery = EXCLUDED.body_battery,
+                        stress_avg = EXCLUDED.stress_avg
+                """, (
+                    yesterday,
+                    sleep_seconds,
+                    resting_hr,
+                    avg_hrv,
+                    body_battery,
+                    stress_avg
+                ))
+
+        return {
+            "date": str(yesterday),
+            "sleep_hours": round(sleep_seconds / 3600, 2) if sleep_seconds else None,
+            "resting_hr": resting_hr,
+            "avg_hrv": avg_hrv,
+            "body_battery": body_battery,
+            "stress_avg": stress_avg
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
