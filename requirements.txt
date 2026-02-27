@@ -3,3 +3,4 @@ uvicorn
 requests
 psycopg[binary]
 garminconnect
+openai>=1.0.0
