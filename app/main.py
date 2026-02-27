@@ -753,7 +753,12 @@ def garmin_full_sync():
         # ---- STATS ----
         stats = api.get_stats(yesterday.isoformat())
         hrv = api.get_hrv_data(yesterday.isoformat())
-        vo2 = api.get_vo2max()
+
+        vo2max_run = None
+        vo2max_bike = None
+
+        if isinstance(stats, dict):
+        vo2max_run = stats.get("vo2MaxValue")
 
         # ---- SAFE EXTRACTION ----
 
