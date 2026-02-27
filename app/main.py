@@ -948,76 +948,49 @@ def readiness_score():
         "recommendation": recommendation
     }
 
+# ---------------------------
+# GENERATE-AI-REPORT
+# ---------------------------
+
+
 @app.get("/generate-ai-report")
 def generate_ai_report():
 
-    import requests
-    import smtplib
-    from email.mime.text import MIMEText
-    from openai import OpenAI
-    import os
+    try:
+        import requests
+        import smtplib
+        from email.mime.text import MIMEText
+        from openai import OpenAI
+        import os
 
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    base_url = os.getenv("BASE_URL")
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        base_url = os.getenv("BASE_URL")
 
-    # ---- fetch data ----
-    daily = requests.get(f"{base_url}/daily-report").json()
-    readiness = requests.get(f"{base_url}/readiness").json()
-    weekly = requests.get(f"{base_url}/weekly-load").json()
+        daily = requests.get(f"{base_url}/daily-report").json()
+        readiness = requests.get(f"{base_url}/readiness").json()
+        weekly = requests.get(f"{base_url}/weekly-load").json()
 
-    prompt = f"""
-You are an experienced triathlon coach.
-
-Daily data:
-Yesterday load: {daily.get("yesterday_load")}
-ATL: {daily.get("ATL_7d")}
-CTL: {daily.get("CTL_42d")}
-Form: {daily.get("form")}
-Week change %: {daily.get("week_change_pct")}
-
-Readiness score: {readiness.get("readiness_score")}
-Recommendation: {readiness.get("recommendation")}
-
-Weekly loads:
-{weekly}
-
-Give:
-- Comment on yesterday
-- Fatigue evaluation
-- Recommendation for today
-- Short weekly summary
+        prompt = f"""
+Daily load: {daily}
+Readiness: {readiness}
+Weekly: {weekly}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a professional endurance coach."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-    )
-
-    ai_text = response.choices[0].message.content
-
-    # ---- EMAIL ----
-    msg = MIMEText(ai_text)
-    msg["Subject"] = "Daily AI Tri Coach Report"
-    msg["From"] = os.getenv("EMAIL_FROM")
-    msg["To"] = os.getenv("EMAIL_TO")
-
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(
-            os.getenv("EMAIL_FROM"),
-            os.getenv("EMAIL_PASSWORD")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a coach."},
+                {"role": "user", "content": prompt}
+            ],
         )
-        server.send_message(msg)
 
-    return {
-        "date": daily.get("date"),
-        "ai_report": ai_text
-    }
+        ai_text = response.choices[0].message.content
 
+        return {"ai_report": ai_text}
+
+    except Exception as e:
+        return {"ERROR": str(e)}
+        
 # ---------------------------
 # COACH EXPORT (FULL LIVE SYNC)
 # ---------------------------
