@@ -771,35 +771,46 @@ def garmin_full_sync():
         api = Garmin(email, password)
         api.login()
 
+        # ---- DATA FETCH ----
+        sleep_data = api.get_sleep_data(yesterday.isoformat())
         stats = api.get_stats(yesterday.isoformat())
         hrv = api.get_hrv_data(yesterday.isoformat())
 
+        # ---- SLEEP ----
         sleep_seconds = None
+        if isinstance(sleep_data, dict):
+            sleep_seconds = sleep_data.get("dailySleepDTO", {}).get("sleepTimeSeconds")
+
+        # ---- STATS ----
         resting_hr = None
         body_battery = None
         stress_avg = None
         vo2max_run = None
 
         if isinstance(stats, dict):
-            sleep_seconds = stats.get("totalSleepSeconds")
             resting_hr = stats.get("restingHeartRate")
             body_battery = stats.get("bodyBatteryAverage")
             stress_avg = stats.get("averageStressLevel")
             vo2max_run = stats.get("vo2MaxValue")
 
+        # ---- HRV ----
         avg_hrv = None
         if isinstance(hrv, dict):
             avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
 
-        # weight
+        # ---- WEIGHT ----
         weight = None
         try:
-            body = api.get_body_composition(yesterday.isoformat(), yesterday.isoformat())
-            if body and isinstance(body, list) and len(body) > 0:
+            body = api.get_body_composition(
+                yesterday.isoformat(),
+                yesterday.isoformat()
+            )
+            if isinstance(body, list) and body:
                 weight = body[0].get("weight")
         except:
             pass
 
+        # ---- DB UPSERT ----
         with psycopg.connect(DATABASE_URL) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -831,6 +842,8 @@ def garmin_full_sync():
             "sleep_h": round(sleep_seconds / 3600, 2) if sleep_seconds else None,
             "rhr": resting_hr,
             "hrv": avg_hrv,
+            "body_battery": body_battery,
+            "stress_avg": stress_avg,
             "vo2_run": vo2max_run,
             "weight": weight
         }
