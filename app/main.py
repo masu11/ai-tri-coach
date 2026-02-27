@@ -48,23 +48,21 @@ def init_db():
                 )
             """)
 
-            # ---------------------------
-            # GARMIN WELLNESS DATA
-            # ---------------------------
-           cur.execute("""
-    CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
-        date DATE PRIMARY KEY,
-        sleep_seconds INTEGER,
-        resting_hr INTEGER,
-        avg_hrv DOUBLE PRECISION,
-        body_battery INTEGER,
-        stress_avg INTEGER,
-        vo2max_run DOUBLE PRECISION,
-        vo2max_bike DOUBLE PRECISION,
-        weight DOUBLE PRECISION
-    )
-""")
-        
+            # GARMIN DAILY METRICS
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
+                    date DATE PRIMARY KEY,
+                    sleep_seconds INTEGER,
+                    resting_hr INTEGER,
+                    avg_hrv DOUBLE PRECISION,
+                    body_battery INTEGER,
+                    stress_avg INTEGER,
+                    vo2max_run DOUBLE PRECISION,
+                    vo2max_bike DOUBLE PRECISION,
+                    weight DOUBLE PRECISION
+                )
+            """)
+
 init_db()
 
 
