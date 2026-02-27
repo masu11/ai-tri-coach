@@ -65,6 +65,27 @@ def init_db():
 
 init_db()
 
+# ---------------------------
+# DB MIGRATION
+# ---------------------------
+
+@app.get("/migrate-db")
+def migrate_db():
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+
+            cur.execute("""
+                ALTER TABLE garmin_daily_metrics
+                ADD COLUMN IF NOT EXISTS vo2max_run DOUBLE PRECISION
+            """)
+
+            cur.execute("""
+                ALTER TABLE garmin_daily_metrics
+                ADD COLUMN IF NOT EXISTS weight DOUBLE PRECISION
+            """)
+
+    return {"status": "migration done"}
 
 # ---------------------------
 # ROOT
