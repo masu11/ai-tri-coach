@@ -523,179 +523,86 @@ def daily_report():
     }
 
 # ---------------------------
-# GARMIN SYNC
+# GARMIN-BACKFILL
 # ---------------------------
 
-@app.get("/garmin-sync")
-def garmin_sync():
+@app.get("/garmin-backfill")
+def garmin_backfill(start: str):
 
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
 
+    start_date = datetime.strptime(start, "%Y-%m-%d").date()
     today = date.today()
-    yesterday = today - timedelta(days=1)
 
-    try:
-        api = Garmin(email, password)
-        api.login()
+    api = Garmin(email, password)
+    api.login()
 
-        sleep = api.get_sleep_data(yesterday.isoformat())
-        rhr = api.get_rhr_day(yesterday.isoformat())
-        hrv = api.get_hrv_data(yesterday.isoformat())
-        body = api.get_body_battery(yesterday.isoformat())
-        stress = api.get_stress_data(yesterday.isoformat())
+    current = start_date
+    total_days = 0
 
-         # ---- SAFE EXTRACTION ----
-        
-        sleep_seconds = None
-        if isinstance(sleep, dict):
-            sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
-        
-        resting_hr = None
-        if isinstance(rhr, dict):
-            resting_hr = rhr.get("restingHeartRate")
-        
-        avg_hrv = None
-        if isinstance(hrv, dict):
-            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
-        
-        body_battery = None
-        if isinstance(body, dict):
-            bb = body.get("bodyBattery")
-            if isinstance(bb, list) and bb:
-                body_battery = bb[-1].get("bodyBatteryLevel")
-        
-        stress_avg = None
-        if isinstance(stress, dict):
-            stress_avg = stress.get("overallStressLevel")
-    
-        with psycopg.connect(DATABASE_URL) as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO garmin_daily_metrics
-                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery, stress_avg)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (date) DO UPDATE SET
-                        sleep_seconds = EXCLUDED.sleep_seconds,
-                        resting_hr = EXCLUDED.resting_hr,
-                        avg_hrv = EXCLUDED.avg_hrv,
-                        body_battery = EXCLUDED.body_battery,
-                        stress_avg = EXCLUDED.stress_avg
-                """, (
-                    yesterday,
-                    sleep_seconds,
-                    resting_hr,
-                    avg_hrv,
-                    body_battery,
-                    stress_avg
-                ))
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
 
-        return {
-            "date": str(yesterday),
-            "sleep_hours": round(sleep_seconds / 3600, 2) if sleep_seconds else None,
-            "resting_hr": resting_hr,
-            "avg_hrv": avg_hrv,
-            "body_battery": body_battery,
-            "stress_avg": stress_avg
-        }
+            while current <= today:
 
-    except Exception as e:
-        return {"error": str(e)}
+                try:
+                    sleep = api.get_sleep_data(current.isoformat())
+                    stats = api.get_stats(current.isoformat())
+                    hrv = api.get_hrv_data(current.isoformat())
+                    stress = api.get_stress_data(current.isoformat())
 
-# ---------------------------
-# GARMIN FULL SYNC
-# ---------------------------
+                    sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds") if sleep else None
+                    sleep_score = sleep.get("dailySleepDTO", {}).get("sleepScores", {}).get("overall") if sleep else None
 
-@app.get("/garmin-full-sync")
-def garmin_full_sync():
+                    resting_hr = stats.get("restingHeartRate") if stats else None
+                    recovery_time = stats.get("recoveryTime") if stats else None
+                    training_status = stats.get("trainingStatus") if stats else None
+                    vo2max_run = stats.get("vo2MaxValue") if stats else None
+                    acute_load = stats.get("acuteTrainingLoad") if stats else None
+                    chronic_load = stats.get("chronicTrainingLoad") if stats else None
 
-    email = os.getenv("GARMIN_EMAIL")
-    password = os.getenv("GARMIN_PASSWORD")
+                    avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg") if hrv else None
+                    stress_avg = stress.get("overallStressLevel") if stress else None
 
-    today = date.today()
-    yesterday = today - timedelta(days=1)
+                    cur.execute("""
+                        INSERT INTO garmin_daily_metrics
+                        (date, sleep_seconds, sleep_score,
+                         resting_hr, avg_hrv, stress_avg,
+                         vo2max_run, recovery_time,
+                         training_status, acute_load, chronic_load)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (date) DO UPDATE SET
+                            sleep_seconds = EXCLUDED.sleep_seconds,
+                            sleep_score = EXCLUDED.sleep_score,
+                            resting_hr = EXCLUDED.resting_hr,
+                            avg_hrv = EXCLUDED.avg_hrv,
+                            stress_avg = EXCLUDED.stress_avg,
+                            vo2max_run = EXCLUDED.vo2max_run,
+                            recovery_time = EXCLUDED.recovery_time,
+                            training_status = EXCLUDED.training_status,
+                            acute_load = EXCLUDED.acute_load,
+                            chronic_load = EXCLUDED.chronic_load
+                    """, (
+                        current,
+                        sleep_seconds,
+                        sleep_score,
+                        resting_hr,
+                        avg_hrv,
+                        stress_avg,
+                        vo2max_run,
+                        recovery_time,
+                        training_status,
+                        acute_load,
+                        chronic_load
+                    ))
 
-    try:
-        api = Garmin(email, password)
-        api.login()
+                    total_days += 1
+                    time.sleep(0.3)
 
-        # ---- DATA FETCH ----
-        sleep_data = api.get_sleep_data(yesterday.isoformat())
-        stats = api.get_stats(yesterday.isoformat())
-        hrv = api.get_hrv_data(yesterday.isoformat())
+                except Exception as e:
+                    print(f"Error on {current}: {e}")
 
-        # ---- SLEEP ----
-        sleep_seconds = None
-        if isinstance(sleep_data, dict):
-            sleep_seconds = sleep_data.get("dailySleepDTO", {}).get("sleepTimeSeconds")
+                current += timedelta(days=1)
 
-        # ---- STATS ----
-        resting_hr = None
-        body_battery = None
-        stress_avg = None
-        vo2max_run = None
-
-        if isinstance(stats, dict):
-            resting_hr = stats.get("restingHeartRate")
-            body_battery = stats.get("bodyBatteryAverage")
-            stress_avg = stats.get("averageStressLevel")
-            vo2max_run = stats.get("vo2MaxValue")
-
-        # ---- HRV ----
-        avg_hrv = None
-        if isinstance(hrv, dict):
-            avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg")
-
-        # ---- WEIGHT ----
-        weight = None
-        try:
-            body = api.get_body_composition(
-                yesterday.isoformat(),
-                yesterday.isoformat()
-            )
-            if isinstance(body, list) and body:
-                weight = body[0].get("weight")
-        except:
-            pass
-
-        # ---- DB UPSERT ----
-        with psycopg.connect(DATABASE_URL) as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO garmin_daily_metrics
-                    (date, sleep_seconds, resting_hr, avg_hrv, body_battery,
-                     stress_avg, vo2max_run, weight)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (date) DO UPDATE SET
-                        sleep_seconds = EXCLUDED.sleep_seconds,
-                        resting_hr = EXCLUDED.resting_hr,
-                        avg_hrv = EXCLUDED.avg_hrv,
-                        body_battery = EXCLUDED.body_battery,
-                        stress_avg = EXCLUDED.stress_avg,
-                        vo2max_run = EXCLUDED.vo2max_run,
-                        weight = EXCLUDED.weight
-                """, (
-                    yesterday,
-                    sleep_seconds,
-                    resting_hr,
-                    avg_hrv,
-                    body_battery,
-                    stress_avg,
-                    vo2max_run,
-                    weight
-                ))
-
-        return {
-            "date": str(yesterday),
-            "sleep_h": round(sleep_seconds / 3600, 2) if sleep_seconds else None,
-            "rhr": resting_hr,
-            "hrv": avg_hrv,
-            "body_battery": body_battery,
-            "stress_avg": stress_avg,
-            "vo2_run": vo2max_run,
-            "weight": weight
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
-
+    return {"days_processed": total_days}
