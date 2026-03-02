@@ -6,6 +6,7 @@ import time
 import psycopg
 from datetime import datetime, timedelta, date
 from garminconnect import Garmin
+from psycopg.types.json import Json
 
 app = FastAPI()
 
@@ -82,27 +83,6 @@ def init_db():
 
 init_db()
 
-# ---------------------------
-# DB MIGRATION
-# ---------------------------
-
-@app.get("/migrate-db")
-def migrate_db():
-
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-
-            cur.execute("""
-                ALTER TABLE garmin_daily_metrics
-                ADD COLUMN IF NOT EXISTS vo2max_run DOUBLE PRECISION
-            """)
-
-            cur.execute("""
-                ALTER TABLE garmin_daily_metrics
-                ADD COLUMN IF NOT EXISTS weight DOUBLE PRECISION
-            """)
-
-    return {"status": "migration done"}
 
 # ---------------------------
 # ROOT
@@ -309,7 +289,7 @@ def sync_strava():
                         detail.get("average_cadence"),
                         detail.get("calories"),
                         detail.get("suffer_score"),
-                        detail
+                        Json(detail)
                     ))
 
                     total_processed += 1
@@ -332,7 +312,7 @@ def sync_strava():
                             VALUES (%s, %s)
                             ON CONFLICT (activity_id) DO UPDATE SET
                                 stream_data = EXCLUDED.stream_data
-                        """, (detail["id"], stream_json))
+                        """, (detail["id"], Json(stream_json)))
 
                         total_streams += 1
 
