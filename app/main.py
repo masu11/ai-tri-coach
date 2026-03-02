@@ -211,8 +211,8 @@ def sync_strava():
 
             params = {"per_page": 200}
 
-            if last_date:
-                params["after"] = int(last_date.timestamp())
+            #if last_date:
+            #    params["after"] = int(last_date.timestamp())
 
             page = 1
 
