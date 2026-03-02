@@ -325,23 +325,34 @@ def sync_strava():
 # ---------------------------
 
 @app.get("/garmin-backfill")
-def garmin_backfill(start: str):
+def garmin_backfill(start: str | None = None):
 
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
 
-    start_date = datetime.strptime(start, "%Y-%m-%d").date()
     today = date.today()
 
     api = Garmin(email, password)
     api.login()
 
-    current = start_date
     total_days = 0
+    errors = 0
 
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         with conn.cursor() as cur:
 
+            # ---- 1️⃣ Určení startu ----
+            cur.execute("SELECT MAX(date) FROM garmin_daily_metrics")
+            last_saved = cur.fetchone()[0]
+
+            if last_saved:
+                current = last_saved + timedelta(days=1)
+            else:
+                if not start:
+                    return {"error": "Provide start=YYYY-MM-DD for first run"}
+                current = datetime.strptime(start, "%Y-%m-%d").date()
+
+            # ---- 2️⃣ Smyčka ----
             while current <= today:
 
                 try:
@@ -350,18 +361,38 @@ def garmin_backfill(start: str):
                     hrv = api.get_hrv_data(current.isoformat())
                     stress = api.get_stress_data(current.isoformat())
 
-                    sleep_seconds = sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds") if sleep else None
-                    sleep_score = sleep.get("dailySleepDTO", {}).get("sleepScores", {}).get("overall") if sleep else None
+                    # ---- SAFE EXTRACTION ----
 
-                    resting_hr = stats.get("restingHeartRate") if stats else None
-                    recovery_time = stats.get("recoveryTime") if stats else None
-                    training_status = stats.get("trainingStatus") if stats else None
-                    vo2max_run = stats.get("vo2MaxValue") if stats else None
-                    acute_load = stats.get("acuteTrainingLoad") if stats else None
-                    chronic_load = stats.get("chronicTrainingLoad") if stats else None
+                    sleep_seconds = (
+                        sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
+                        if isinstance(sleep, dict) else None
+                    )
 
-                    avg_hrv = hrv.get("hrvSummary", {}).get("lastNightAvg") if hrv else None
-                    stress_avg = stress.get("overallStressLevel") if stress else None
+                    sleep_score = (
+                        sleep.get("dailySleepDTO", {})
+                             .get("sleepScores", {})
+                             .get("overall")
+                        if isinstance(sleep, dict) else None
+                    )
+
+                    resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
+                    recovery_time = stats.get("recoveryTime") if isinstance(stats, dict) else None
+                    training_status = stats.get("trainingStatus") if isinstance(stats, dict) else None
+                    vo2max_run = stats.get("vo2MaxValue") if isinstance(stats, dict) else None
+                    acute_load = stats.get("acuteTrainingLoad") if isinstance(stats, dict) else None
+                    chronic_load = stats.get("chronicTrainingLoad") if isinstance(stats, dict) else None
+
+                    avg_hrv = (
+                        hrv.get("hrvSummary", {}).get("lastNightAvg")
+                        if isinstance(hrv, dict) else None
+                    )
+
+                    stress_avg = (
+                        stress.get("overallStressLevel")
+                        if isinstance(stress, dict) else None
+                    )
+
+                    # ---- UPSERT ----
 
                     cur.execute("""
                         INSERT INTO garmin_daily_metrics
@@ -396,11 +427,17 @@ def garmin_backfill(start: str):
                     ))
 
                     total_days += 1
-                    time.sleep(0.3)
 
                 except Exception as e:
                     print(f"Error on {current}: {e}")
+                    errors += 1
+
+                # ---- RATE LIMIT PROTECTION ----
+                time.sleep(0.4)
 
                 current += timedelta(days=1)
 
-    return {"days_processed": total_days}
+    return {
+        "days_processed": total_days,
+        "errors": errors
+    }
