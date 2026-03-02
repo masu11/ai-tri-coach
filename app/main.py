@@ -33,21 +33,6 @@ def init_db():
                 )
             """)
 
-            # ACTIVITIES
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS activities (
-                    id SERIAL PRIMARY KEY,
-                    strava_id BIGINT UNIQUE,
-                    name TEXT,
-                    sport_type TEXT,
-                    start_date TIMESTAMP,
-                    duration INTEGER,
-                    distance DOUBLE PRECISION,
-                    avg_hr DOUBLE PRECISION,
-                    avg_power DOUBLE PRECISION
-                )
-            """)
-
             # GARMIN DAILY METRICS
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS garmin_daily_metrics (
@@ -87,13 +72,13 @@ def init_db():
                 )
             """)
 
-# STREAMS
-cur.execute("""
-    CREATE TABLE IF NOT EXISTS activity_streams (
-        activity_id BIGINT PRIMARY KEY,
-        stream_data JSONB
-    )
-""")
+            # STREAMS
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS activity_streams (
+                    activity_id BIGINT PRIMARY KEY,
+                    stream_data JSONB
+                )
+            """)
 
 init_db()
 
