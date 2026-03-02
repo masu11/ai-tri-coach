@@ -389,13 +389,14 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
                         if isinstance(sleep, dict) else None
                     )
 
-                    sleep_score = (
-                        sleep.get("dailySleepDTO", {})
-                             .get("sleepScores", {})
-                             .get("overall"), {})
-                             .get("value")
-                        if isinstance(sleep, dict) else None
-                    )
+sleep_score = (
+    sleep.get("dailySleepDTO", {})
+         .get("sleepScores", {})
+         .get("overall", {})
+         .get("value")
+    if isinstance(sleep, dict)
+    else None
+)
 
                     resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
                     recovery_time = stats.get("recoveryTime") if isinstance(stats, dict) else None
