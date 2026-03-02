@@ -357,6 +357,35 @@ def sync_garmin(start: str | None = None):
             while current <= today:
 
                 try:
+
+                     try:
+
+                        # 👇 DEBUG jen pro konkrétní den
+                        if current != date(2024, 6, 1):
+                            current += timedelta(days=1)
+                            continue
+                
+                        sleep = api.get_sleep_data(current.isoformat())
+                        stats = api.get_stats(current.isoformat())
+                        hrv = api.get_hrv_data(current.isoformat())
+                        stress = api.get_stress_data(current.isoformat())
+                
+                        print("====== DEBUG ======")
+                        print("DATE:", current)
+                        print("SLEEP:", sleep)
+                        print("STATS:", stats)
+                        print("HRV:", hrv)
+                        print("STRESS:", stress)
+                        print("===================")
+                
+                        break  # 👈 po jednom dni ukonči
+                
+                    except Exception as e:
+                        print(f"Error on {current}: {e}")
+                
+                    current += timedelta(days=1)
+
+                    
                     sleep = api.get_sleep_data(current.isoformat())
                     stats = api.get_stats(current.isoformat())
                     hrv = api.get_hrv_data(current.isoformat())
