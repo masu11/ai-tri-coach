@@ -397,7 +397,6 @@ sleep_score = (
     if isinstance(sleep, dict)
     else None
 )
-
                     resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
                     recovery_time = stats.get("recoveryTime") if isinstance(stats, dict) else None
                     training_status = stats.get("trainingStatus") if isinstance(stats, dict) else None
