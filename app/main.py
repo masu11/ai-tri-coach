@@ -351,7 +351,9 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
             cur.execute("SELECT MAX(date) FROM garmin_daily_metrics")
             last_saved = cur.fetchone()[0]
 
-            if last_saved:
+            if debug_target:
+                current = debug_target
+            elif last_saved:
                 current = last_saved + timedelta(days=1)
             else:
                 if not start:
@@ -362,59 +364,88 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
             while current <= today:
 
                 try:
-                    # 🔍 DEBUG MODE
-                    if debug_target and current != debug_target:
-                        current += timedelta(days=1)
-                        continue
-
                     sleep = api.get_sleep_data(current.isoformat())
                     stats = api.get_stats(current.isoformat())
                     hrv = api.get_hrv_data(current.isoformat())
                     stress = api.get_stress_data(current.isoformat())
 
-                    # ---- DEBUG PRINT ----
+                    # ---- DEBUG MODE ----
                     if debug_target:
-                        print("====== DEBUG ======")
-                        print("DATE:", current)
-                        print("SLEEP:", sleep)
-                        print("STATS:", stats)
-                        print("HRV:", hrv)
-                        print("STRESS:", stress)
-                        print("===================")
-                        break
+                        return {
+                            "date": str(current),
+                            "sleep": sleep,
+                            "stats": stats,
+                            "hrv": hrv,
+                            "stress": stress
+                        }
 
                     # ---- SAFE EXTRACTION ----
+
                     sleep_seconds = (
                         sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
-                        if isinstance(sleep, dict) else None
+                        if isinstance(sleep, dict)
+                        else None
                     )
 
-sleep_score = (
-    sleep.get("dailySleepDTO", {})
-         .get("sleepScores", {})
-         .get("overall", {})
-         .get("value")
-    if isinstance(sleep, dict)
-    else None
-)
-                    resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
-                    recovery_time = stats.get("recoveryTime") if isinstance(stats, dict) else None
-                    training_status = stats.get("trainingStatus") if isinstance(stats, dict) else None
-                    vo2max_run = stats.get("vo2MaxValue") if isinstance(stats, dict) else None
-                    acute_load = stats.get("acuteTrainingLoad") if isinstance(stats, dict) else None
-                    chronic_load = stats.get("chronicTrainingLoad") if isinstance(stats, dict) else None
+                    sleep_score = (
+                        sleep.get("dailySleepDTO", {})
+                             .get("sleepScores", {})
+                             .get("overall", {})
+                             .get("value")
+                        if isinstance(sleep, dict)
+                        else None
+                    )
+
+                    resting_hr = (
+                        stats.get("restingHeartRate")
+                        if isinstance(stats, dict)
+                        else None
+                    )
+
+                    recovery_time = (
+                        stats.get("recoveryTime")
+                        if isinstance(stats, dict)
+                        else None
+                    )
+
+                    training_status = (
+                        stats.get("trainingStatus")
+                        if isinstance(stats, dict)
+                        else None
+                    )
+
+                    vo2max_run = (
+                        stats.get("vo2MaxValue")
+                        if isinstance(stats, dict)
+                        else None
+                    )
+
+                    acute_load = (
+                        stats.get("acuteTrainingLoad")
+                        if isinstance(stats, dict)
+                        else None
+                    )
+
+                    chronic_load = (
+                        stats.get("chronicTrainingLoad")
+                        if isinstance(stats, dict)
+                        else None
+                    )
 
                     avg_hrv = (
                         hrv.get("hrvSummary", {}).get("lastNightAvg")
-                        if isinstance(hrv, dict) else None
+                        if isinstance(hrv, dict)
+                        else None
                     )
 
                     stress_avg = (
-                        stress.get("overallStressLevel")
-                        if isinstance(stress, dict) else None
+                        stress.get("avgStressLevel")
+                        if isinstance(stress, dict)
+                        else None
                     )
 
                     # ---- UPSERT ----
+
                     cur.execute("""
                         INSERT INTO garmin_daily_metrics
                         (date, sleep_seconds, sleep_score,
@@ -450,11 +481,10 @@ sleep_score = (
                     total_days += 1
 
                 except Exception as e:
-                    # print(f"Error on {current}: {e}")
                     return {
-		            "error_on_date": str(current),
-		            "error_message": str(e)}
-                    errors += 1
+                        "error_on_date": str(current),
+                        "error_message": str(e)
+                    }
 
                 time.sleep(0.4)
                 current += timedelta(days=1)
@@ -463,3 +493,4 @@ sleep_score = (
         "days_processed": total_days,
         "errors": errors
     }
+
