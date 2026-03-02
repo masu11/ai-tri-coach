@@ -449,7 +449,10 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
                     total_days += 1
 
                 except Exception as e:
-                    print(f"Error on {current}: {e}")
+                    --print(f"Error on {current}: {e}")
+                    return {
+		            "error_on_date": str(current),
+		            "error_message": str(e)}
                     errors += 1
 
                 time.sleep(0.4)
