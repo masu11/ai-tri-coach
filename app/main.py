@@ -392,7 +392,8 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
                     sleep_score = (
                         sleep.get("dailySleepDTO", {})
                              .get("sleepScores", {})
-                             .get("overall")
+                             .get("overall"), {})
+                             .get("value")
                         if isinstance(sleep, dict) else None
                     )
 
