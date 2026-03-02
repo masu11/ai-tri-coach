@@ -193,6 +193,7 @@ def get_valid_token():
 # ---------------------------
 
 @app.get("/sync")
+@app.get("/sync")
 def sync_strava():
 
     access_token = get_valid_token()
@@ -205,19 +206,17 @@ def sync_strava():
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
 
-            # zjisti poslední aktivitu
             cur.execute("SELECT MAX(start_date) FROM activities")
             last_date = cur.fetchone()[0]
 
             params = {"per_page": 200}
-
-            #if last_date:
-            #    params["after"] = int(last_date.timestamp())
+            # pokud chceš full sync, zakomentuj after
+            # if last_date:
+            #     params["after"] = int(last_date.timestamp())
 
             page = 1
 
             while True:
-
                 params["page"] = page
 
                 r = requests.get(
@@ -230,63 +229,58 @@ def sync_strava():
                     return {"error": r.text}
 
                 activities = r.json()
-
                 if not activities:
                     break
 
                 for act in activities:
 
                     # ---- DETAIL FETCH ----
-                    detail = requests.get(
+                    detail_res = requests.get(
                         f"https://www.strava.com/api/v3/activities/{act['id']}",
                         headers={"Authorization": f"Bearer {access_token}"}
                     )
 
-                    if detail.status_code != 200:
+                    if detail_res.status_code != 200:
                         continue
 
-                    detail = detail.json()
+                    detail = detail_res.json()
 
-                    print(type(detail["start_date"]))
-                    
-                
-
-                cur.execute("""
-                    INSERT INTO activities
-                    (strava_id, name, sport_type, start_date,
-                     duration, elapsed_time, distance,
-                     total_elevation_gain,
-                     avg_hr, max_hr,
-                     avg_power, avg_speed, max_speed,
-                     avg_cadence, calories, suffer_score,
-                     raw_json)
-                    VALUES (%s,%s,%s,%s,
-                            %s,%s,%s,
-                            %s,
-                            %s,%s,
-                            %s,%s,%s,
-                            %s,%s,%s,
-                            %s)
-                    ON CONFLICT (strava_id) DO NOTHING
-                """, (
-                    detail["id"],
-                    detail["name"],
-                    detail["sport_type"],
-                    detail["start_date"],
-                    detail["moving_time"],
-                    detail.get("elapsed_time"),
-                    detail["distance"],
-                    detail.get("total_elevation_gain"),
-                    detail.get("average_heartrate"),
-                    detail.get("max_heartrate"),
-                    detail.get("average_watts"),
-                    detail.get("average_speed"),
-                    detail.get("max_speed"),
-                    detail.get("average_cadence"),
-                    detail.get("calories"),
-                    detail.get("suffer_score"),
-                    Json(detail)
-                ))
+                    cur.execute("""
+                        INSERT INTO activities
+                        (strava_id, name, sport_type, start_date,
+                         duration, elapsed_time, distance,
+                         total_elevation_gain,
+                         avg_hr, max_hr,
+                         avg_power, avg_speed, max_speed,
+                         avg_cadence, calories, suffer_score,
+                         raw_json)
+                        VALUES (%s,%s,%s,%s,
+                                %s,%s,%s,
+                                %s,
+                                %s,%s,
+                                %s,%s,%s,
+                                %s,%s,%s,
+                                %s)
+                        ON CONFLICT (strava_id) DO NOTHING
+                    """, (
+                        detail["id"],
+                        detail["name"],
+                        detail["sport_type"],
+                        detail["start_date"],
+                        detail["moving_time"],
+                        detail.get("elapsed_time"),
+                        detail["distance"],
+                        detail.get("total_elevation_gain"),
+                        detail.get("average_heartrate"),
+                        detail.get("max_heartrate"),
+                        detail.get("average_watts"),
+                        detail.get("average_speed"),
+                        detail.get("max_speed"),
+                        detail.get("average_cadence"),
+                        detail.get("calories"),
+                        detail.get("suffer_score"),
+                        Json(detail)
+                    ))
 
                     total_processed += 1
 
@@ -303,17 +297,17 @@ def sync_strava():
                     if streams.status_code == 200:
                         stream_json = streams.json()
 
-                    cur.execute("""
-                    INSERT INTO activity_streams (activity_id, stream_data)
-                    VALUES (%s, %s)
-                    ON CONFLICT (activity_id) DO NOTHING
-                """, (
-                    detail["id"],
-                    Json(stream_json)
-                ))
+                        cur.execute("""
+                            INSERT INTO activity_streams (activity_id, stream_data)
+                            VALUES (%s, %s)
+                            ON CONFLICT (activity_id) DO NOTHING
+                        """, (
+                            detail["id"],
+                            Json(stream_json)
+                        ))
+
                         total_streams += 1
 
-                    # ---- RATE LIMIT PROTECTION ----
                     time.sleep(0.6)
 
                 page += 1
@@ -323,68 +317,7 @@ def sync_strava():
         "streams_saved": total_streams
     }
 
-# ---------------------------
-# DB COUNT
-# ---------------------------
 
-@app.get("/db-count")
-def db_count():
-
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM activities")
-            count = cur.fetchone()[0]
-
-    return {"db_activity_count": count}
-
-# ---------------------------
-# SUMMARY
-# ---------------------------
-
-@app.get("/summary")
-def summary():
-
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-
-            # celkový počet
-            cur.execute("SELECT COUNT(*) FROM activities")
-            total = cur.fetchone()[0]
-
-            # podle sportu
-            cur.execute("""
-                SELECT sport_type, COUNT(*)
-                FROM activities
-                GROUP BY sport_type
-            """)
-            by_sport = dict(cur.fetchall())
-
-            # celkový čas (v hodinách)
-            cur.execute("SELECT SUM(duration) FROM activities")
-            total_seconds = cur.fetchone()[0] or 0
-            total_hours = round(total_seconds / 3600, 1)
-
-            # celková vzdálenost (v km)
-            cur.execute("SELECT SUM(distance) FROM activities")
-            total_distance = cur.fetchone()[0] or 0
-            total_km = round(total_distance / 1000, 1)
-
-            # poslední aktivita
-            cur.execute("""
-                SELECT name, sport_type, start_date
-                FROM activities
-                ORDER BY start_date DESC
-                LIMIT 1
-            """)
-            last_activity = cur.fetchone()
-
-    return {
-        "total_activities": total,
-        "by_sport": by_sport,
-        "total_hours": total_hours,
-        "total_km": total_km,
-        "last_activity": last_activity
-    }
 
 # ---------------------------
 # LOAD
@@ -518,102 +451,7 @@ def weekly_load():
 
     return result
 
-# ---------------------------
-# WEEKLY-LOAD-BY-SPORT
-# ---------------------------
 
-
-@app.get("/weekly-load-by-sport")
-def weekly_load_by_sport():
-
-    sport_factors = {
-        "Run": 1.2,
-        "Ride": 1.0,
-        "VirtualRide": 1.0,
-        "GravelRide": 1.0,
-        "MountainBikeRide": 1.0,
-        "Swim": 1.3
-    }
-
-    weekly = {}
-
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT sport_type, duration, start_date
-                FROM activities
-            """)
-            rows = cur.fetchall()
-
-    for sport, duration, date in rows:
-
-        hours = duration / 3600
-        factor = sport_factors.get(sport, 0.7)
-        load = hours * factor
-
-        week_start = (date - timedelta(days=date.weekday())).date()
-
-        if week_start not in weekly:
-            weekly[week_start] = {}
-
-        if sport not in weekly[week_start]:
-            weekly[week_start][sport] = 0
-
-        weekly[week_start][sport] += load
-
-    sorted_weeks = sorted(weekly.keys())
-
-    result = []
-
-    for w in sorted_weeks[-8:]:  # posledních 8 týdnů
-        sport_data = {
-            sport: round(load, 2)
-            for sport, load in weekly[w].items()
-        }
-
-        result.append({
-            "week_start": str(w),
-            "sports": sport_data
-        })
-
-    return result
-
-# ---------------------------
-# DEBUG-SWIM-WEE
-# ---------------------------
-
-
-@app.get("/debug-swim-week")
-def debug_swim_week():
-
-    from datetime import date
-
-    target_week = date(2026, 1, 12)
-
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT name, duration, start_date
-                FROM activities
-                WHERE sport_type = 'Swim'
-                  AND start_date >= %s
-                  AND start_date < %s
-                ORDER BY duration DESC
-            """, (target_week, target_week + timedelta(days=7)))
-
-            rows = cur.fetchall()
-
-    result = []
-
-    for name, duration, start_date in rows:
-        result.append({
-            "name": name,
-            "duration_minutes": round(duration / 60, 1),
-            "duration_hours": round(duration / 3600, 2),
-            "date": str(start_date)
-        })
-
-    return result
 
 # ---------------------------
 # DAILY REPORT
