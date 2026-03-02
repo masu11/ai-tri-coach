@@ -321,12 +321,13 @@ def sync_strava():
 
 # ---------------------------
 # SYNC GARMIN
-# volám např. /sync_garmin?start=2023-01-01, když chci historii
-# pro denní volání stačí takto /sync_garmin
+# normální běh /sync_garmin
+# první běh /sync_garmin?start=2023-01-01
+# DEBUG jednoho dne: /sync_garmin?debug_date=2024-06-01
 # ---------------------------
 
 @app.get("/sync_garmin")
-def sync_garmin(start: str | None = None):
+def sync_garmin(start: str | None = None, debug_date: str | None = None):
 
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
@@ -339,10 +340,14 @@ def sync_garmin(start: str | None = None):
     total_days = 0
     errors = 0
 
+    debug_target = None
+    if debug_date:
+        debug_target = datetime.strptime(debug_date, "%Y-%m-%d").date()
+
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         with conn.cursor() as cur:
 
-            # ---- 1️⃣ Určení startu ----
+            # ---- START DATE ----
             cur.execute("SELECT MAX(date) FROM garmin_daily_metrics")
             last_saved = cur.fetchone()[0]
 
@@ -353,23 +358,22 @@ def sync_garmin(start: str | None = None):
                     return {"error": "Provide start=YYYY-MM-DD for first run"}
                 current = datetime.strptime(start, "%Y-%m-%d").date()
 
-            # ---- 2️⃣ Smyčka ----
+            # ---- LOOP ----
             while current <= today:
 
                 try:
+                    # 🔍 DEBUG MODE
+                    if debug_target and current != debug_target:
+                        current += timedelta(days=1)
+                        continue
 
-                     try:
+                    sleep = api.get_sleep_data(current.isoformat())
+                    stats = api.get_stats(current.isoformat())
+                    hrv = api.get_hrv_data(current.isoformat())
+                    stress = api.get_stress_data(current.isoformat())
 
-                        # 👇 DEBUG jen pro konkrétní den
-                        if current != date(2024, 6, 1):
-                            current += timedelta(days=1)
-                            continue
-                
-                        sleep = api.get_sleep_data(current.isoformat())
-                        stats = api.get_stats(current.isoformat())
-                        hrv = api.get_hrv_data(current.isoformat())
-                        stress = api.get_stress_data(current.isoformat())
-                
+                    # ---- DEBUG PRINT ----
+                    if debug_target:
                         print("====== DEBUG ======")
                         print("DATE:", current)
                         print("SLEEP:", sleep)
@@ -377,22 +381,9 @@ def sync_garmin(start: str | None = None):
                         print("HRV:", hrv)
                         print("STRESS:", stress)
                         print("===================")
-                
-                        break  # 👈 po jednom dni ukonči
-                
-                    except Exception as e:
-                        print(f"Error on {current}: {e}")
-                
-                    current += timedelta(days=1)
-
-                    
-                    sleep = api.get_sleep_data(current.isoformat())
-                    stats = api.get_stats(current.isoformat())
-                    hrv = api.get_hrv_data(current.isoformat())
-                    stress = api.get_stress_data(current.isoformat())
+                        break
 
                     # ---- SAFE EXTRACTION ----
-
                     sleep_seconds = (
                         sleep.get("dailySleepDTO", {}).get("sleepTimeSeconds")
                         if isinstance(sleep, dict) else None
@@ -423,7 +414,6 @@ def sync_garmin(start: str | None = None):
                     )
 
                     # ---- UPSERT ----
-
                     cur.execute("""
                         INSERT INTO garmin_daily_metrics
                         (date, sleep_seconds, sleep_score,
@@ -462,9 +452,7 @@ def sync_garmin(start: str | None = None):
                     print(f"Error on {current}: {e}")
                     errors += 1
 
-                # ---- RATE LIMIT PROTECTION ----
                 time.sleep(0.4)
-
                 current += timedelta(days=1)
 
     return {
