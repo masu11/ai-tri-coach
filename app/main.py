@@ -396,41 +396,25 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
                         else None
                     )
 
-                    resting_hr = (
-                        stats.get("restingHeartRate")
-                        if isinstance(stats, dict)
+                    deep_sleep = (
+                        sleep.get("dailySleepDTO", {}).get("deepSleepSeconds")
+                        if isinstance(sleep, dict)
                         else None
                     )
 
-                    recovery_time = (
-                        stats.get("recoveryTime")
-                        if isinstance(stats, dict)
+                    rem_sleep = (
+                        sleep.get("dailySleepDTO", {}).get("remSleepSeconds")
+                        if isinstance(sleep, dict)
                         else None
                     )
 
-                    training_status = (
-                        stats.get("trainingStatus")
-                        if isinstance(stats, dict)
-                        else None
-                    )
-
-                    vo2max_run = (
-                        stats.get("vo2MaxValue")
-                        if isinstance(stats, dict)
-                        else None
-                    )
-
-                    acute_load = (
-                        stats.get("acuteTrainingLoad")
-                        if isinstance(stats, dict)
-                        else None
-                    )
-
-                    chronic_load = (
-                        stats.get("chronicTrainingLoad")
-                        if isinstance(stats, dict)
-                        else None
-                    )
+                    resting_hr = stats.get("restingHeartRate") if isinstance(stats, dict) else None
+                    recovery_time = stats.get("recoveryTime") if isinstance(stats, dict) else None
+                    training_status = stats.get("trainingStatus") if isinstance(stats, dict) else None
+                    vo2max_run = stats.get("vo2MaxValue") if isinstance(stats, dict) else None
+                    acute_load = stats.get("acuteTrainingLoad") if isinstance(stats, dict) else None
+                    chronic_load = stats.get("chronicTrainingLoad") if isinstance(stats, dict) else None
+                    body_battery = stats.get("bodyBatteryMostRecentValue") if isinstance(stats, dict) else None
 
                     avg_hrv = (
                         hrv.get("hrvSummary", {}).get("lastNightAvg")
@@ -444,38 +428,76 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
                         else None
                     )
 
+                    # ---- BODY COMPOSITION ----
+                    weight = None
+                    body_fat = None
+                    muscle_mass = None
+
+                    try:
+                        body = api.get_body_composition(
+                            current.isoformat(),
+                            current.isoformat()
+                        )
+                        if isinstance(body, list) and body:
+                            weight = body[0].get("weight")
+                            body_fat = body[0].get("bodyFat")
+                            muscle_mass = body[0].get("muscleMass")
+                    except:
+                        pass
+
                     # ---- UPSERT ----
 
                     cur.execute("""
                         INSERT INTO garmin_daily_metrics
                         (date, sleep_seconds, sleep_score,
+                         deep_sleep, rem_sleep,
                          resting_hr, avg_hrv, stress_avg,
+                         body_battery,
                          vo2max_run, recovery_time,
-                         training_status, acute_load, chronic_load)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                         training_status, acute_load, chronic_load,
+                         weight, body_fat, muscle_mass)
+                        VALUES (%s,%s,%s,
+                                %s,%s,
+                                %s,%s,%s,
+                                %s,
+                                %s,%s,
+                                %s,%s,%s,
+                                %s,%s,%s)
                         ON CONFLICT (date) DO UPDATE SET
                             sleep_seconds = EXCLUDED.sleep_seconds,
                             sleep_score = EXCLUDED.sleep_score,
+                            deep_sleep = EXCLUDED.deep_sleep,
+                            rem_sleep = EXCLUDED.rem_sleep,
                             resting_hr = EXCLUDED.resting_hr,
                             avg_hrv = EXCLUDED.avg_hrv,
                             stress_avg = EXCLUDED.stress_avg,
+                            body_battery = EXCLUDED.body_battery,
                             vo2max_run = EXCLUDED.vo2max_run,
                             recovery_time = EXCLUDED.recovery_time,
                             training_status = EXCLUDED.training_status,
                             acute_load = EXCLUDED.acute_load,
-                            chronic_load = EXCLUDED.chronic_load
+                            chronic_load = EXCLUDED.chronic_load,
+                            weight = EXCLUDED.weight,
+                            body_fat = EXCLUDED.body_fat,
+                            muscle_mass = EXCLUDED.muscle_mass
                     """, (
                         current,
                         sleep_seconds,
                         sleep_score,
+                        deep_sleep,
+                        rem_sleep,
                         resting_hr,
                         avg_hrv,
                         stress_avg,
+                        body_battery,
                         vo2max_run,
                         recovery_time,
                         training_status,
                         acute_load,
-                        chronic_load
+                        chronic_load,
+                        weight,
+                        body_fat,
+                        muscle_mass
                     ))
 
                     total_days += 1
@@ -493,4 +515,3 @@ def sync_garmin(start: str | None = None, debug_date: str | None = None):
         "days_processed": total_days,
         "errors": errors
     }
-
