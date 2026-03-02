@@ -265,7 +265,7 @@ def sync_strava():
                                 %s,%s,%s,
                                 %s,%s,%s,
                                 %s)
-                        ON CONFLICT (strava_id) DO UPDATE SET
+                        ON CONFLICT (strava_id) DO NOTHING
                             total_elevation_gain = EXCLUDED.total_elevation_gain,
                             max_hr = EXCLUDED.max_hr,
                             avg_speed = EXCLUDED.avg_speed,
@@ -312,7 +312,7 @@ def sync_strava():
                         cur.execute("""
                             INSERT INTO activity_streams (activity_id, stream_data)
                             VALUES (%s, %s)
-                            ON CONFLICT (activity_id) DO UPDATE SET
+                            ON CONFLICT (strava_id) DO NOTHING
                                 stream_data = EXCLUDED.stream_data
                         """, (detail["id"], Json(stream_json)))
 
