@@ -320,13 +320,13 @@ def sync_strava():
 
 
 # ---------------------------
-# GARMIN-BACKFILL
-# volám např. /garmin-backfill?start=2023-01-01, když chci historii
-# pro denní volání stačí takto /garmin-backfill
+# SYNC GARMIN
+# volám např. /sync_garmin?start=2023-01-01, když chci historii
+# pro denní volání stačí takto /sync_garmin
 # ---------------------------
 
-@app.get("/garmin-backfill")
-def garmin_backfill(start: str | None = None):
+@app.get("/sync_garmin")
+def sync_garmin(start: str | None = None):
 
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
