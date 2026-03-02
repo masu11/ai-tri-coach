@@ -9,6 +9,8 @@ from garminconnect import Garmin
 from psycopg.types.json import Json
 
 app = FastAPI()
+app.include_router(report_router.router)
+
 
 CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
