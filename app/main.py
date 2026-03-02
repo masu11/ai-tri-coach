@@ -63,6 +63,38 @@ def init_db():
                 )
             """)
 
+            # ACTIVITIES (EXTENDED)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS activities (
+                    id SERIAL PRIMARY KEY,
+                    strava_id BIGINT UNIQUE,
+                    name TEXT,
+                    sport_type TEXT,
+                    start_date TIMESTAMP,
+                    duration INTEGER,
+                    elapsed_time INTEGER,
+                    distance DOUBLE PRECISION,
+                    total_elevation_gain DOUBLE PRECISION,
+                    avg_hr DOUBLE PRECISION,
+                    max_hr DOUBLE PRECISION,
+                    avg_power DOUBLE PRECISION,
+                    avg_speed DOUBLE PRECISION,
+                    max_speed DOUBLE PRECISION,
+                    avg_cadence DOUBLE PRECISION,
+                    calories DOUBLE PRECISION,
+                    suffer_score DOUBLE PRECISION,
+                    raw_json JSONB
+                )
+            """)
+
+# STREAMS
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS activity_streams (
+        activity_id BIGINT PRIMARY KEY,
+        stream_data JSONB
+    )
+""")
+
 init_db()
 
 # ---------------------------
@@ -196,69 +228,138 @@ def get_valid_token():
 # ---------------------------
 
 @app.get("/sync")
-def incremental_sync():
+def sync_strava():
 
     access_token = get_valid_token()
-
     if not access_token:
         return {"error": "Not authenticated"}
+
+    total_processed = 0
+    total_streams = 0
 
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
 
-            # zjisti nejnovější datum v DB
+            # zjisti poslední aktivitu
             cur.execute("SELECT MAX(start_date) FROM activities")
-            result = cur.fetchone()
-            last_date = result[0]
+            last_date = cur.fetchone()[0]
 
             params = {"per_page": 200}
 
             if last_date:
-                # převod na timestamp
-                timestamp = int(last_date.timestamp())
-                params["after"] = timestamp
+                params["after"] = int(last_date.timestamp())
 
-            total_new = 0
             page = 1
 
             while True:
 
                 params["page"] = page
 
-                response = requests.get(
+                r = requests.get(
                     "https://www.strava.com/api/v3/athlete/activities",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    params=params,
+                    params=params
                 )
 
-                activities = response.json()
+                if r.status_code != 200:
+                    return {"error": r.text}
+
+                activities = r.json()
 
                 if not activities:
                     break
 
                 for act in activities:
+
+                    # ---- DETAIL FETCH ----
+                    detail = requests.get(
+                        f"https://www.strava.com/api/v3/activities/{act['id']}",
+                        headers={"Authorization": f"Bearer {access_token}"}
+                    )
+
+                    if detail.status_code != 200:
+                        continue
+
+                    detail = detail.json()
+
                     cur.execute("""
                         INSERT INTO activities
-                        (strava_id, name, sport_type, start_date, duration, distance, avg_hr, avg_power)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (strava_id) DO NOTHING
+                        (strava_id, name, sport_type, start_date,
+                         duration, elapsed_time, distance,
+                         total_elevation_gain,
+                         avg_hr, max_hr,
+                         avg_power, avg_speed, max_speed,
+                         avg_cadence, calories, suffer_score,
+                         raw_json)
+                        VALUES (%s,%s,%s,%s,
+                                %s,%s,%s,
+                                %s,
+                                %s,%s,
+                                %s,%s,%s,
+                                %s,%s,%s,
+                                %s)
+                        ON CONFLICT (strava_id) DO UPDATE SET
+                            total_elevation_gain = EXCLUDED.total_elevation_gain,
+                            max_hr = EXCLUDED.max_hr,
+                            avg_speed = EXCLUDED.avg_speed,
+                            max_speed = EXCLUDED.max_speed,
+                            avg_cadence = EXCLUDED.avg_cadence,
+                            calories = EXCLUDED.calories,
+                            suffer_score = EXCLUDED.suffer_score,
+                            raw_json = EXCLUDED.raw_json
                     """, (
-                        act["id"],
-                        act["name"],
-                        act["sport_type"],
-                        act["start_date"],
-                        act["moving_time"],
-                        act["distance"],
-                        act.get("average_heartrate"),
-                        act.get("average_watts"),
+                        detail["id"],
+                        detail["name"],
+                        detail["sport_type"],
+                        detail["start_date"],
+                        detail["moving_time"],
+                        detail.get("elapsed_time"),
+                        detail["distance"],
+                        detail.get("total_elevation_gain"),
+                        detail.get("average_heartrate"),
+                        detail.get("max_heartrate"),
+                        detail.get("average_watts"),
+                        detail.get("average_speed"),
+                        detail.get("max_speed"),
+                        detail.get("average_cadence"),
+                        detail.get("calories"),
+                        detail.get("suffer_score"),
+                        detail
                     ))
 
-                    total_new += 1
+                    total_processed += 1
+
+                    # ---- STREAM FETCH (ALL STREAMS) ----
+                    streams = requests.get(
+                        f"https://www.strava.com/api/v3/activities/{detail['id']}/streams",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        params={
+                            "keys": "time,heartrate,altitude,velocity_smooth,watts,cadence",
+                            "key_by_type": "true"
+                        }
+                    )
+
+                    if streams.status_code == 200:
+                        stream_json = streams.json()
+
+                        cur.execute("""
+                            INSERT INTO activity_streams (activity_id, stream_data)
+                            VALUES (%s, %s)
+                            ON CONFLICT (activity_id) DO UPDATE SET
+                                stream_data = EXCLUDED.stream_data
+                        """, (detail["id"], stream_json))
+
+                        total_streams += 1
+
+                    # ---- RATE LIMIT PROTECTION ----
+                    time.sleep(0.6)
 
                 page += 1
 
-    return {"new_activities_synced": total_new}
-
+    return {
+        "activities_processed": total_processed,
+        "streams_saved": total_streams
+    }
 
 # ---------------------------
 # DB COUNT
