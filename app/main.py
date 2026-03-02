@@ -266,33 +266,6 @@ def sync_strava():
                                 %s,%s,%s,
                                 %s)
                         ON CONFLICT (strava_id) DO NOTHING
-                            total_elevation_gain = EXCLUDED.total_elevation_gain,
-                            max_hr = EXCLUDED.max_hr,
-                            avg_speed = EXCLUDED.avg_speed,
-                            max_speed = EXCLUDED.max_speed,
-                            avg_cadence = EXCLUDED.avg_cadence,
-                            calories = EXCLUDED.calories,
-                            suffer_score = EXCLUDED.suffer_score,
-                            raw_json = EXCLUDED.raw_json
-                    """, (
-                        detail["id"],
-                        detail["name"],
-                        detail["sport_type"],
-                        detail["start_date"],
-                        detail["moving_time"],
-                        detail.get("elapsed_time"),
-                        detail["distance"],
-                        detail.get("total_elevation_gain"),
-                        detail.get("average_heartrate"),
-                        detail.get("max_heartrate"),
-                        detail.get("average_watts"),
-                        detail.get("average_speed"),
-                        detail.get("max_speed"),
-                        detail.get("average_cadence"),
-                        detail.get("calories"),
-                        detail.get("suffer_score"),
-                        Json(detail)
-                    ))
 
                     total_processed += 1
 
@@ -313,9 +286,6 @@ def sync_strava():
                             INSERT INTO activity_streams (activity_id, stream_data)
                             VALUES (%s, %s)
                             ON CONFLICT (strava_id) DO NOTHING
-                                stream_data = EXCLUDED.stream_data
-                        """, (detail["id"], Json(stream_json)))
-
                         total_streams += 1
 
                     # ---- RATE LIMIT PROTECTION ----
