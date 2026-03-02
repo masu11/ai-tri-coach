@@ -1317,3 +1317,15 @@ def performance_export():
     ]
 
     return result
+
+# ---------------------------
+# RESET-STRAVA-DATA
+# ---------------------------
+
+@app.get("/reset-strava-data")
+def reset_strava_data():
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS activity_streams")
+            cur.execute("DROP TABLE IF EXISTS activities")
+    return {"status": "Strava tables dropped"}
