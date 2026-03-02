@@ -322,6 +322,8 @@ def sync_strava():
 
 # ---------------------------
 # GARMIN-BACKFILL
+# volám např. /garmin-backfill?start=2023-01-01, když chci historii
+# pro denní volání stačí takto /garmin-backfill
 # ---------------------------
 
 @app.get("/garmin-backfill")
