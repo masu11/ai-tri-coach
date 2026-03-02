@@ -192,8 +192,7 @@ def get_valid_token():
 # SYNC STRAVA
 # ---------------------------
 
-@app.get("/sync")
-@app.get("/sync")
+@app.get("/sync_strava")
 def sync_strava():
 
     access_token = get_valid_token()
