@@ -323,7 +323,7 @@ def sync_strava():
 # SYNC GARMIN
 # normální běh /sync_garmin
 # první běh /sync_garmin?start=2023-01-01
-# DEBUG jednoho dne: /sync_garmin?debug_date=2024-06-01
+# DEBUG jednoho dne: /sync_garmin?start=2024-06-01&debug_date=2024-06-01
 # ---------------------------
 
 @app.get("/sync_garmin")
