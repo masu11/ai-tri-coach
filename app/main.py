@@ -247,6 +247,8 @@ def sync_strava():
 
                     detail = detail.json()
 
+                    print(type(detail["start_date"]))
+                    
                     cur.execute("""
                         INSERT INTO activities
                         (strava_id, name, sport_type, start_date,
