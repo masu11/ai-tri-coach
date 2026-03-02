@@ -249,23 +249,42 @@ def sync_strava():
 
                     print(type(detail["start_date"]))
                     
-                    cur.execute("""
-                        INSERT INTO activities
-                        (strava_id, name, sport_type, start_date,
-                         duration, elapsed_time, distance,
-                         total_elevation_gain,
-                         avg_hr, max_hr,
-                         avg_power, avg_speed, max_speed,
-                         avg_cadence, calories, suffer_score,
-                         raw_json)
-                        VALUES (%s,%s,%s,%s,
-                                %s,%s,%s,
-                                %s,
-                                %s,%s,
-                                %s,%s,%s,
-                                %s,%s,%s,
-                                %s)
-                        ON CONFLICT (strava_id) DO NOTHING
+                  cur.execute("""
+                    INSERT INTO activities
+                    (strava_id, name, sport_type, start_date,
+                     duration, elapsed_time, distance,
+                     total_elevation_gain,
+                     avg_hr, max_hr,
+                     avg_power, avg_speed, max_speed,
+                     avg_cadence, calories, suffer_score,
+                     raw_json)
+                    VALUES (%s,%s,%s,%s,
+                            %s,%s,%s,
+                            %s,
+                            %s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            %s)
+                    ON CONFLICT (strava_id) DO NOTHING
+                """, (
+                    detail["id"],
+                    detail["name"],
+                    detail["sport_type"],
+                    detail["start_date"],
+                    detail["moving_time"],
+                    detail.get("elapsed_time"),
+                    detail["distance"],
+                    detail.get("total_elevation_gain"),
+                    detail.get("average_heartrate"),
+                    detail.get("max_heartrate"),
+                    detail.get("average_watts"),
+                    detail.get("average_speed"),
+                    detail.get("max_speed"),
+                    detail.get("average_cadence"),
+                    detail.get("calories"),
+                    detail.get("suffer_score"),
+                    Json(detail)
+                ))
 
                     total_processed += 1
 
@@ -282,10 +301,14 @@ def sync_strava():
                     if streams.status_code == 200:
                         stream_json = streams.json()
 
-                        cur.execute("""
-                            INSERT INTO activity_streams (activity_id, stream_data)
-                            VALUES (%s, %s)
-                            ON CONFLICT (strava_id) DO NOTHING
+                    cur.execute("""
+                    INSERT INTO activity_streams (activity_id, stream_data)
+                    VALUES (%s, %s)
+                    ON CONFLICT (activity_id) DO NOTHING
+                """, (
+                    detail["id"],
+                    Json(stream_json)
+                ))
                         total_streams += 1
 
                     # ---- RATE LIMIT PROTECTION ----
