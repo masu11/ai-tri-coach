@@ -7,7 +7,9 @@ import psycopg
 from datetime import datetime, timedelta, date
 from garminconnect import Garmin
 from psycopg.types.json import Json
+from app.routers import admin_router
 
+app.include_router(admin_router.router)
 app = FastAPI()
 
 CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
