@@ -8,6 +8,11 @@ router = APIRouter()
 
 ADMIN_KEY = os.getenv("ADMIN_KEY")
 
+def serialize(model):
+    return {
+        column.name: getattr(model, column.name)
+        for column in model.__table__.columns
+    }
 
 def check_key(key: str):
     if key != ADMIN_KEY:
@@ -25,7 +30,7 @@ def export_all(admin_key: str):
     garmin = db.query(GarminDailyMetrics).all()
 
     return {
-        "activities": [a.__dict__ for a in activities],
-        "activity_streams": [s.__dict__ for s in streams],
-        "garmin_daily_metrics": [g.__dict__ for g in garmin]
+        "activities": [serialize(a) for a in activities],
+        "activity_streams": [serialize(s) for s in streams],
+        "garmin_daily_metrics": [serialize(g) for g in garmin]
     }
