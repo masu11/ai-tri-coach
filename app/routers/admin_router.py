@@ -48,11 +48,33 @@ def export_zip(admin_key: str):
 
     db: Session = SessionLocal()
 
-    data = {
-        "activities": [serialize(a) for a in db.query(Activity).all()],
-        "activity_streams": [serialize(s) for s in db.query(ActivityStream).all()],
-        "garmin_daily_metrics": [serialize(g) for g in db.query(GarminDailyMetrics).all()],
-    }
+    dactivities = db.query(
+    Activity.id,
+    Activity.strava_id,
+    Activity.start_date,
+    Activity.duration,
+    Activity.elapsed_time,
+    Activity.distance,
+    Activity.total_elevation_gain,
+    Activity.avg_hr,
+    Activity.max_hr,
+    Activity.avg_power,
+    Activity.avg_speed,
+    Activity.max_speed,
+    Activity.avg_cadence,
+    Activity.calories,
+    Activity.suffer_score,
+    Activity.name,
+    Activity.sport_type,
+    Activity.tss,
+).all()
+
+garmin = db.query(GarminDailyMetrics).all()
+
+data = {
+    "activities": [dict(row._mapping) for row in activities],
+    "garmin_daily_metrics": [serialize(g) for g in garmin]
+}
 
     # vytvořit dočasný JSON soubor
    with NamedTemporaryFile(mode="w", delete=False, suffix=".json", encoding="utf-8") as json_file:
