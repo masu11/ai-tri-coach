@@ -13,8 +13,8 @@ class Activity(Base):
 class ActivityStream(Base):
     __tablename__ = "activity_streams"
 
-    id = Column(Integer, primary_key=True)
-    activity_id = Column(Integer)
+    activity_id = Column(BigInteger, primary_key=True)
+    stream_data = Column(JSONB)
 
 class GarminDailyMetrics(Base):
     __tablename__ = "garmin_daily_metrics"
