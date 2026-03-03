@@ -47,42 +47,50 @@ def export_zip(admin_key: str):
     check_key(admin_key)
 
     db: Session = SessionLocal()
+    try:
+        activities = db.query(
+            Activity.id,
+            Activity.strava_id,
+            Activity.start_date,
+            Activity.duration,
+            Activity.elapsed_time,
+            Activity.distance,
+            Activity.total_elevation_gain,
+            Activity.avg_hr,
+            Activity.max_hr,
+            Activity.avg_power,
+            Activity.avg_speed,
+            Activity.max_speed,
+            Activity.avg_cadence,
+            Activity.calories,
+            Activity.suffer_score,
+            Activity.name,
+            Activity.sport_type,
+            Activity.tss,
+        ).all()
 
-    dactivities = db.query(
-    Activity.id,
-    Activity.strava_id,
-    Activity.start_date,
-    Activity.duration,
-    Activity.elapsed_time,
-    Activity.distance,
-    Activity.total_elevation_gain,
-    Activity.avg_hr,
-    Activity.max_hr,
-    Activity.avg_power,
-    Activity.avg_speed,
-    Activity.max_speed,
-    Activity.avg_cadence,
-    Activity.calories,
-    Activity.suffer_score,
-    Activity.name,
-    Activity.sport_type,
-    Activity.tss,
-).all()
+        garmin = db.query(GarminDailyMetrics).all()
 
-garmin = db.query(GarminDailyMetrics).all()
+        data = {
+            "activities": [dict(row._mapping) for row in activities],
+            "garmin_daily_metrics": [serialize(g) for g in garmin],
+        }
 
-data = {
-    "activities": [dict(row._mapping) for row in activities],
-    "garmin_daily_metrics": [serialize(g) for g in garmin]
-}
+    finally:
+        db.close()
 
-    # vytvořit dočasný JSON soubor
-   with NamedTemporaryFile(mode="w", delete=False, suffix=".json", encoding="utf-8") as json_file:
-    json.dump(data, json_file, default=str)
-    json_path = json_file.name
+    # 🔹 POZOR – toto musí být mimo try/finally blok
+    from tempfile import NamedTemporaryFile
+    import json
+    import zipfile
+    import os
 
-    # vytvořit ZIP
+    with NamedTemporaryFile(mode="w", delete=False, suffix=".json", encoding="utf-8") as json_file:
+        json.dump(data, json_file, default=str)
+        json_path = json_file.name
+
     zip_path = json_path.replace(".json", ".zip")
+
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.write(json_path, arcname="export.json")
 
