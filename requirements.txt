@@ -6,3 +6,4 @@ garminconnect
 openai>=1.0.0
 SQLAlchemy>=2.0
 python-dotenv
+psycopg2-binary
