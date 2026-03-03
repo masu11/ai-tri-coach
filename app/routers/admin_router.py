@@ -55,9 +55,9 @@ def export_zip(admin_key: str):
     }
 
     # vytvořit dočasný JSON soubor
-    with NamedTemporaryFile(delete=False, suffix=".json") as json_file:
-        json.dump(data, json_file, default=str)
-        json_path = json_file.name
+   with NamedTemporaryFile(mode="w", delete=False, suffix=".json", encoding="utf-8") as json_file:
+    json.dump(data, json_file, default=str)
+    json_path = json_file.name
 
     # vytvořit ZIP
     zip_path = json_path.replace(".json", ".zip")
