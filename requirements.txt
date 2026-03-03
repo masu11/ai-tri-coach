@@ -4,3 +4,5 @@ requests
 psycopg[binary]
 garminconnect
 openai>=1.0.0
+SQLAlchemy>=2.0
+python-dotenv
