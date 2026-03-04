@@ -94,6 +94,13 @@ init_db()
 def root():
     return {"status": "AI Tri Coach running (Postgres)"}
 
+# ---------------------------
+# HEALTH - slouží k ping, aby render neusnul
+# ---------------------------
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 # ---------------------------
 # LOGIN
