@@ -98,9 +98,18 @@ def root():
 # HEALTH - slouží k ping, aby render neusnul
 # ---------------------------
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
+# ---------------------------
+# CRON_SYNC - slouží k synchromizaci se STRAVA a GARMIN 
+# ---------------------------
+
+@app.api_route("/cron_sync", methods=["GET", "HEAD"])
+def cron_sync():
+    run_garmin_sync()
+    run_strava_sync()
+    return {"status": "sync complete"}
 
 # ---------------------------
 # LOGIN
