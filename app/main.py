@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, date
 from garminconnect import Garmin
 from psycopg.types.json import Json
 from app.routers import admin_router
+from fastapi import BackgroundTasks
+
 
 app = FastAPI()
 app.include_router(admin_router.router)
@@ -106,10 +108,49 @@ def health():
 # ---------------------------
 
 @app.api_route("/cron_sync", methods=["GET", "HEAD"])
-def cron_sync():
-    run_garmin_sync()
-    run_strava_sync()
-    return {"status": "sync complete"}
+def cron_sync(background_tasks: BackgroundTasks):
+
+    background_tasks.add_task(run_sync)
+
+    return {"status": "cron triggered"}
+
+
+# ---------------------------
+# RUN_SYNC
+# ---------------------------
+
+
+sync_running = False
+last_sync_date = None
+
+
+def run_sync():
+    global sync_running, last_sync_date
+
+    today = datetime.utcnow().date()
+
+    if sync_running:
+        print("Sync already running")
+        return
+
+    if last_sync_date == today:
+        print("Sync already done today")
+        return
+
+    sync_running = True
+
+    try:
+        print("Starting Garmin + Strava sync")
+
+        run_garmin_sync()
+        run_strava_sync()
+
+        last_sync_date = today
+
+        print("Sync completed")
+
+    finally:
+        sync_running = False
 
 # ---------------------------
 # LOGIN
