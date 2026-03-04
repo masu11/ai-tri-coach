@@ -90,7 +90,7 @@ init_db()
 # ROOT
 # ---------------------------
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"status": "AI Tri Coach running (Postgres)"}
 
