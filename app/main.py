@@ -142,8 +142,8 @@ def run_sync():
     try:
         print("Starting Garmin + Strava sync")
 
-        run_garmin_sync()
-        run_strava_sync()
+        sync_garmin()
+        sync_strava()
 
         last_sync_date = today
 
