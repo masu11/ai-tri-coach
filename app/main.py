@@ -18,6 +18,14 @@ CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
 DATABASE_URL = os.getenv("DATABASE_URL")
+ADMIN_KEY = os.getenv("ADMIN_KEY")
+
+
+from fastapi import HTTPException
+
+def check_key(key: str):
+    if key != ADMIN_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 # ---------------------------
