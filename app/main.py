@@ -262,18 +262,19 @@ def calculate_tss(activity):
 
     hours = duration / 3600
 
-    # Bike power TSS
-    if sport in ["Ride", "VirtualRide", "GravelRide", "MountainBikeRide"] and power:
-        ftp = 250  # nastavíš podle sebe
+    # bike
+    if sport in ["Ride","VirtualRide","GravelRide","MountainBikeRide"] and power:
+        #ftp = 250
+        ftp = 180
         return hours * (power / ftp) ** 2 * 100
 
-    # Run hrTSS
+    # run
     if sport == "Run" and hr:
         threshold_hr = 170
         intensity = hr / threshold_hr
-        return hours * intensity**2 * 100
+        return hours * intensity ** 2 * 100
 
-    # Swim approximace
+    # swim
     if sport == "Swim":
         return hours * 60
 
@@ -327,7 +328,8 @@ def sync_strava(full: int = 0):
 
                 for act in activities:
 
-                    tss = calculate_tss(detail)
+                    # vypočítat TSS
+                    tss = calculate_tss(act)
 
                     cur.execute("""
                     INSERT INTO activities
@@ -347,23 +349,23 @@ def sync_strava(full: int = 0):
                             %s,%s)
                     ON CONFLICT (strava_id) DO NOTHING
                     """, (
-                        detail["id"],
-                        detail["name"],
-                        detail["sport_type"],
-                        detail["start_date"],
-                        detail["moving_time"],
-                        detail.get("elapsed_time"),
-                        detail["distance"],
-                        detail.get("total_elevation_gain"),
-                        detail.get("average_heartrate"),
-                        detail.get("max_heartrate"),
-                        detail.get("average_watts"),
-                        detail.get("average_speed"),
-                        detail.get("max_speed"),
-                        detail.get("average_cadence"),
-                        detail.get("calories"),
-                        detail.get("suffer_score"),
-                        Json(detail),
+                        act["id"],
+                        act["name"],
+                        act["sport_type"],
+                        act["start_date"],
+                        act.get("moving_time"),
+                        act.get("elapsed_time"),
+                        act.get("distance"),
+                        act.get("total_elevation_gain"),
+                        act.get("average_heartrate"),
+                        act.get("max_heartrate"),
+                        act.get("average_watts"),
+                        act.get("average_speed"),
+                        act.get("max_speed"),
+                        act.get("average_cadence"),
+                        act.get("calories"),
+                        act.get("suffer_score"),
+                        Json(act),
                         tss
                     ))
 
