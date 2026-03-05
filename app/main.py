@@ -425,8 +425,8 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
         with conn.cursor() as cur:
 
             # ---- START DATE ----
-            #cur.execute("SELECT MAX(date) FROM garmin_daily_metrics")
-            #last_saved = cur.fetchone()[0]
+            cur.execute("SELECT MAX(date) FROM garmin_daily_metrics")
+            last_saved = cur.fetchone()[0]
 
             #if debug_target:
             #    current = debug_target
@@ -437,7 +437,7 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
             #        return {"error": "Provide start=YYYY-MM-DD for first run"}
             #    current = datetime.strptime(start, "%Y-%m-%d").date()
 
-            # ---- START DATE ----
+            
             if debug_target:
                 current = debug_target
             elif start:
