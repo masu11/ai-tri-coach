@@ -294,11 +294,11 @@ def calculate_tss(activity):
     return hours * 50
 
 # ---------------------------
-# RUN_SYNCSTRAVA
+# RUN_SYNCS_TRAVA
 # ---------------------------
 
 def run_sync_strava(full: int = 0):
-    check_key(admin_key)
+    
 
     access_token = get_valid_token()
     if not access_token:
@@ -413,8 +413,7 @@ def sync_strava(admin_key: str, full: int = 0):
 
 def run_sync_garmin(start: str | None = None, debug_date: str | None = None):
 
-    check_key(admin_key)
-
+    
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
 
