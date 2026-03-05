@@ -135,6 +135,7 @@ last_sync_date = None
 
 
 def run_sync():
+
     global sync_running, last_sync_date
 
     today = datetime.utcnow().date()
@@ -150,10 +151,13 @@ def run_sync():
     sync_running = True
 
     try:
+
         print("Starting Garmin + Strava sync")
 
-        sync_garmin()
-        sync_strava()
+        admin_key = os.getenv("ADMIN_KEY")
+
+        sync_garmin(admin_key=admin_key)
+        sync_strava(admin_key=admin_key)
 
         last_sync_date = today
 
