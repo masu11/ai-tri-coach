@@ -107,8 +107,10 @@ def health():
 # CRON_SYNC - slouží k synchromizaci se STRAVA a GARMIN 
 # ---------------------------
 
-@app.api_route("/cron_sync", methods=["GET", "HEAD"])
-def cron_sync(background_tasks: BackgroundTasks):
+@app.api_route("/cron_sync", methods=["GET","HEAD"])
+def cron_sync(admin_key: str, background_tasks: BackgroundTasks):
+
+    check_key(admin_key)
 
     background_tasks.add_task(run_sync)
 
@@ -284,7 +286,9 @@ def calculate_tss(activity):
 # ---------------------------
 
 @app.get("/sync_strava")
-def sync_strava(full: int = 0):
+def sync_strava(admin_key: str, full: int = 0):
+
+    check_key(admin_key)
 
     access_token = get_valid_token()
     if not access_token:
@@ -390,7 +394,9 @@ def sync_strava(full: int = 0):
 # ---------------------------
 
 @app.get("/sync_garmin")
-def sync_garmin(start: str | None = None, debug_date: str | None = None):
+def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None = None):
+
+    check_key(admin_key)
 
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
