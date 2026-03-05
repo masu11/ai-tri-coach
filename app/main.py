@@ -246,6 +246,38 @@ def get_valid_token():
 
     return access_token
 
+# ---------------------------
+# calculate_tss - počítá TSS pro insert do activities
+# ---------------------------
+
+def calculate_tss(activity):
+
+    duration = activity.get("moving_time")
+    sport = activity.get("sport_type")
+    power = activity.get("average_watts")
+    hr = activity.get("average_heartrate")
+
+    if not duration:
+        return None
+
+    hours = duration / 3600
+
+    # Bike power TSS
+    if sport in ["Ride", "VirtualRide", "GravelRide", "MountainBikeRide"] and power:
+        ftp = 250  # nastavíš podle sebe
+        return hours * (power / ftp) ** 2 * 100
+
+    # Run hrTSS
+    if sport == "Run" and hr:
+        threshold_hr = 170
+        intensity = hr / threshold_hr
+        return hours * intensity**2 * 100
+
+    # Swim approximace
+    if sport == "Swim":
+        return hours * 60
+
+    return hours * 50
 
 # ---------------------------
 # SYNC STRAVA
@@ -295,39 +327,44 @@ def sync_strava(full: int = 0):
 
                 for act in activities:
 
+                    tss = calculate_tss(detail)
+
                     cur.execute("""
-                        INSERT INTO activities
-                        (strava_id, name, sport_type, start_date,
-                         duration, elapsed_time, distance,
-                         total_elevation_gain,
-                         avg_hr, max_hr,
-                         avg_power, avg_speed,
-                         avg_cadence, calories,
-                         raw_json)
-                        VALUES (%s,%s,%s,%s,
-                                %s,%s,%s,
-                                %s,
-                                %s,%s,
-                                %s,%s,
-                                %s,%s,
-                                %s)
-                        ON CONFLICT (strava_id) DO NOTHING
+                    INSERT INTO activities
+                    (strava_id, name, sport_type, start_date,
+                    duration, elapsed_time, distance,
+                    total_elevation_gain,
+                    avg_hr, max_hr,
+                    avg_power, avg_speed, max_speed,
+                    avg_cadence, calories, suffer_score,
+                    raw_json, tss)
+                    VALUES (%s,%s,%s,%s,
+                            %s,%s,%s,
+                            %s,
+                            %s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            %s,%s)
+                    ON CONFLICT (strava_id) DO NOTHING
                     """, (
-                        act["id"],
-                        act["name"],
-                        act["sport_type"],
-                        act["start_date"],
-                        act.get("moving_time"),
-                        act.get("elapsed_time"),
-                        act.get("distance"),
-                        act.get("total_elevation_gain"),
-                        act.get("average_heartrate"),
-                        act.get("max_heartrate"),
-                        act.get("average_watts"),
-                        act.get("average_speed"),
-                        act.get("average_cadence"),
-                        act.get("calories"),
-                        Json(act)
+                        detail["id"],
+                        detail["name"],
+                        detail["sport_type"],
+                        detail["start_date"],
+                        detail["moving_time"],
+                        detail.get("elapsed_time"),
+                        detail["distance"],
+                        detail.get("total_elevation_gain"),
+                        detail.get("average_heartrate"),
+                        detail.get("max_heartrate"),
+                        detail.get("average_watts"),
+                        detail.get("average_speed"),
+                        detail.get("max_speed"),
+                        detail.get("average_cadence"),
+                        detail.get("calories"),
+                        detail.get("suffer_score"),
+                        Json(detail),
+                        tss
                     ))
 
                     total_processed += 1
