@@ -252,14 +252,13 @@ def get_valid_token():
 # ---------------------------
 
 @app.get("/sync_strava")
-def sync_strava():
+def sync_strava(full: int = 0):
 
     access_token = get_valid_token()
     if not access_token:
         return {"error": "Not authenticated"}
 
     total_processed = 0
-    total_streams = 0
 
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
@@ -267,14 +266,17 @@ def sync_strava():
             cur.execute("SELECT MAX(start_date) FROM activities")
             last_date = cur.fetchone()[0]
 
-            params = {"per_page": 200}
-            # pokud chceš full sync, zakomentuj after
-            # if last_date:
-            #     params["after"] = int(last_date.timestamp())
+            params = {
+                "per_page": 200
+            }
+
+            if not full and last_date:
+                params["after"] = int(last_date.timestamp())
 
             page = 1
 
             while True:
+
                 params["page"] = page
 
                 r = requests.get(
@@ -287,21 +289,11 @@ def sync_strava():
                     return {"error": r.text}
 
                 activities = r.json()
+
                 if not activities:
                     break
 
                 for act in activities:
-
-                    # ---- DETAIL FETCH ----
-                    detail_res = requests.get(
-                        f"https://www.strava.com/api/v3/activities/{act['id']}",
-                        headers={"Authorization": f"Bearer {access_token}"}
-                    )
-
-                    if detail_res.status_code != 200:
-                        continue
-
-                    detail = detail_res.json()
 
                     cur.execute("""
                         INSERT INTO activities
@@ -309,71 +301,45 @@ def sync_strava():
                          duration, elapsed_time, distance,
                          total_elevation_gain,
                          avg_hr, max_hr,
-                         avg_power, avg_speed, max_speed,
-                         avg_cadence, calories, suffer_score,
+                         avg_power, avg_speed,
+                         avg_cadence, calories,
                          raw_json)
                         VALUES (%s,%s,%s,%s,
                                 %s,%s,%s,
                                 %s,
                                 %s,%s,
-                                %s,%s,%s,
-                                %s,%s,%s,
+                                %s,%s,
+                                %s,%s,
                                 %s)
                         ON CONFLICT (strava_id) DO NOTHING
                     """, (
-                        detail["id"],
-                        detail["name"],
-                        detail["sport_type"],
-                        detail["start_date"],
-                        detail["moving_time"],
-                        detail.get("elapsed_time"),
-                        detail["distance"],
-                        detail.get("total_elevation_gain"),
-                        detail.get("average_heartrate"),
-                        detail.get("max_heartrate"),
-                        detail.get("average_watts"),
-                        detail.get("average_speed"),
-                        detail.get("max_speed"),
-                        detail.get("average_cadence"),
-                        detail.get("calories"),
-                        detail.get("suffer_score"),
-                        Json(detail)
+                        act["id"],
+                        act["name"],
+                        act["sport_type"],
+                        act["start_date"],
+                        act.get("moving_time"),
+                        act.get("elapsed_time"),
+                        act.get("distance"),
+                        act.get("total_elevation_gain"),
+                        act.get("average_heartrate"),
+                        act.get("max_heartrate"),
+                        act.get("average_watts"),
+                        act.get("average_speed"),
+                        act.get("average_cadence"),
+                        act.get("calories"),
+                        Json(act)
                     ))
 
                     total_processed += 1
 
-                    # ---- STREAM FETCH (ALL STREAMS) ----
-                    streams = requests.get(
-                        f"https://www.strava.com/api/v3/activities/{detail['id']}/streams",
-                        headers={"Authorization": f"Bearer {access_token}"},
-                        params={
-                            "keys": "time,heartrate,altitude,velocity_smooth,watts,cadence",
-                            "key_by_type": "true"
-                        }
-                    )
-
-                    if streams.status_code == 200:
-                        stream_json = streams.json()
-
-                        cur.execute("""
-                            INSERT INTO activity_streams (activity_id, stream_data)
-                            VALUES (%s, %s)
-                            ON CONFLICT (activity_id) DO NOTHING
-                        """, (
-                            detail["id"],
-                            Json(stream_json)
-                        ))
-
-                        total_streams += 1
-
-                    time.sleep(0.6)
-
                 page += 1
 
+                time.sleep(1.2)
+
     return {
-        "activities_processed": total_processed,
-        "streams_saved": total_streams
+        "activities_processed": total_processed
     }
+
 
 
 
