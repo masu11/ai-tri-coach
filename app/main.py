@@ -264,13 +264,12 @@ def calculate_tss(activity):
 
     # bike
     if sport in ["Ride","VirtualRide","GravelRide","MountainBikeRide"] and power:
-        #ftp = 250
         ftp = 180
         return hours * (power / ftp) ** 2 * 100
 
     # run
     if sport == "Run" and hr:
-        threshold_hr = 170
+        threshold_hr = 155
         intensity = hr / threshold_hr
         return hours * intensity ** 2 * 100
 
