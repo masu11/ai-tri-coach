@@ -290,12 +290,10 @@ def calculate_tss(activity):
     return hours * 50
 
 # ---------------------------
-# SYNC STRAVA
+# RUN_SYNCSTRAVA
 # ---------------------------
 
-@app.get("/sync_strava")
-def sync_strava(admin_key: str, full: int = 0):
-
+def run_sync_strava(full: int = 0):
     check_key(admin_key)
 
     access_token = get_valid_token()
@@ -391,18 +389,25 @@ def sync_strava(admin_key: str, full: int = 0):
     }
 
 
+# ---------------------------
+# SYNC STRAVA - endpoint
+# ---------------------------
 
+@app.get("/sync_strava")
+def sync_strava(admin_key: str, full: int = 0):
 
+    check_key(admin_key)
+
+    return run_sync_strava(full)
 
 # ---------------------------
-# SYNC GARMIN
+# RUN_SYNC GARMIN
 # normální běh /sync_garmin
 # první běh /sync_garmin?start=2023-01-01
 # DEBUG jednoho dne: /sync_garmin?start=2024-06-01&debug_date=2024-06-01
 # ---------------------------
 
-@app.get("/sync_garmin")
-def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None = None):
+def run_sync_garmin(start: str | None = None, debug_date: str | None = None):
 
     check_key(admin_key)
 
@@ -602,3 +607,15 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
         "days_processed": total_days,
         "errors": errors
     }
+
+# ---------------------------
+# SYNC GARMIN - endpoint
+# --------------------------
+
+
+@app.get("/sync_garmin")
+def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None = None):
+
+    check_key(admin_key)
+
+    return run_sync_garmin(start, debug_date)
