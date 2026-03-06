@@ -87,12 +87,13 @@ def run_ai_coach():
             "count": r.get("count"),
             "distance": round(((r.get("distance") or 0) / 1000), 2),
             "tss": round((r.get("tss") or 0), 2)
-        })    
+        }) 
 
     data = {
         "yesterday": yesterday_rows,
         "weekly": weekly_rows,
-        "monthly": last30_summary,
+        "monthly": monthly_rows,
+        "last7_daily": last7_daily,
         "sleep": sleep_score,
         "hrv": hrv,
         "battery": body_battery,
