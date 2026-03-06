@@ -14,7 +14,7 @@ def run_ai_coach():
     # souhrn posledních 7 dní
     weekly_summary = get_last7_summary()
 
-    total_tss = sum(r["tss"] for r in weekly_summary) if weekly_summary else 0
+    total_tss = sum((r.get("tss") or 0) for r in weekly_summary) if weekly_summary else 0
 
 
     # recovery data z Garminu
