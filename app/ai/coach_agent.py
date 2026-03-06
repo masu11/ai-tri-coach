@@ -3,7 +3,8 @@ import os
 from app.ai.metrics_builder import (
     get_yesterday_activities,
     get_last7_summary,
-    get_last30_summary
+    get_last30_summary,
+    get_last7_daily_tss
 )
 
 from app.ai.recovery_model import get_latest_recovery
@@ -18,6 +19,7 @@ def run_ai_coach():
 
     # souhrn posledních 7 dní
     weekly_summary = get_last7_summary()
+    last7_daily = get_last7_daily_tss()
 
     total_tss = sum((r.get("tss") or 0) for r in weekly_summary) if weekly_summary else 0
 

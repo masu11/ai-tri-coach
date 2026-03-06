@@ -1,4 +1,34 @@
 from app.database import db
+from app.database import get_connection
+
+
+def get_last7_daily_tss():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            DATE(start_date) as day,
+            SUM(tss) as tss
+        FROM activities
+        WHERE start_date > NOW() - INTERVAL '7 days'
+        AND duration BETWEEN 300 AND 28800
+        GROUP BY DATE(start_date)
+        ORDER BY day
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+
+    for r in rows:
+        result.append({
+            "day": str(r[0]),
+            "tss": float(r[1] or 0)
+        })
+
+    return result
 
 
 def get_last7_summary():
