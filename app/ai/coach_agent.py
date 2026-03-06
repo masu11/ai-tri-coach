@@ -5,7 +5,7 @@ from app.ai.metrics_builder import (
     get_last7_summary,
     get_last30_summary
 )
-)
+
 from app.ai.recovery_model import get_latest_recovery
 from app.ai.plan_generator import generate_plan
 from app.ai.report_generator import create_and_send_report
