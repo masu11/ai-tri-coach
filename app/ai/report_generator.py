@@ -4,13 +4,23 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
 
-def build_table_rows(rows, columns):
+def build_plan_rows(plan):
+
     html = ""
-    for r in rows:
-        html += "<tr>"
-        for c in columns:
-            html += f"<td>{r.get(c, '')}</td>"
-        html += "</tr>"
+
+    for p in plan:
+
+        if isinstance(p, dict):
+
+            day = p.get("day", "")
+            training = p.get("training", "")
+
+        else:
+            day = ""
+            training = p
+
+        html += f"<tr><td>{day}</td><td>{training}</td></tr>"
+
     return html
 
 
