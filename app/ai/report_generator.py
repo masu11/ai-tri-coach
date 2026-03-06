@@ -16,8 +16,9 @@ def build_plan_rows(plan):
             training = p.get("training", "")
 
         else:
+
             day = ""
-            training = p
+            training = str(p)
 
         html += f"<tr><td>{day}</td><td>{training}</td></tr>"
 
