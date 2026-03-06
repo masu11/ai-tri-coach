@@ -1,52 +1,91 @@
 import os
-from app.ai.metrics_builder import get_last_runs, get_last7_tss
+
+from app.ai.metrics_builder import get_last_activities, get_last7_summary
 from app.ai.recovery_model import get_latest_recovery
-from app.ai.performance_model import detect_performance_trend
 from app.ai.plan_generator import generate_plan
 from app.ai.report_generator import create_and_send_report
 
 
 def run_ai_coach():
 
-    runs = get_last_runs()
+    # poslední aktivity
+    activities = get_last_activities()
 
-    trend = detect_performance_trend(runs)
+    # souhrn posledních 7 dní
+    weekly_summary = get_last7_summary()
 
+    total_tss = sum(r["tss"] for r in weekly_summary) if weekly_summary else 0
+
+
+    # recovery data z Garminu
     recovery = get_latest_recovery()
 
-    tss7 = get_last7_tss()
+    sleep_score = recovery.get("sleep_score", 0)
+    hrv = recovery.get("avg_hrv", 0)
+    body_battery = recovery.get("body_battery", 0)
+    stress = recovery.get("stress_avg", 0)
 
-    total_tss = sum(r["tss"] for r in tss7) if tss7 else 0
 
+    # rozhodování AI trenéra
+    if sleep_score < 60 or body_battery < 40:
+        recommendation = "Nízká regenerace → doporučen lehký trénink"
 
-    if recovery < 2:
-        recommendation = "Doporučen regenerační trénink"
+    elif total_tss > 600:
+        recommendation = "Velká tréninková zátěž → doporučen recovery den"
 
-    elif total_tss > 500:
-        recommendation = "Vysoká zátěž → lehčí trénink"
-
-    elif trend == "improving":
-        recommendation = "Dobrá forma → kvalitní trénink"
+    elif total_tss < 250:
+        recommendation = "Nízký tréninkový objem → doporučen kvalitní trénink"
 
     else:
-        recommendation = "Normální vytrvalostní trénink"
+        recommendation = "Optimální tréninková zátěž"
 
 
+    # generování plánu
     plan = generate_plan(recommendation)
 
 
+    # včerejší aktivity
+    yesterday_rows = []
+
+    if activities:
+
+        last = activities[0]
+
+        yesterday_rows.append({
+            "sport": last.get("sport_type"),
+            "distance": round((last.get("distance") or 0) / 1000, 2),
+            "duration": round((last.get("duration") or 0) / 60, 1),
+            "tss": last.get("tss")
+        })
+
+
+    # weekly rows pro report
+    weekly_rows = []
+
+    for r in weekly_summary:
+
+        weekly_rows.append({
+            "sport": r["sport_type"],
+            "count": r["activities"],
+            "distance": round((r["distance"] or 0) / 1000, 2),
+            "tss": r["tss"]
+        })
+
+
+    # data pro HTML report
     data = {
-        "yesterday": [],
-        "weekly": [],
-        "sleep": 80,
-        "hrv": 65,
-        "battery": 70,
-        "stress": 25,
+        "yesterday": yesterday_rows,
+        "weekly": weekly_rows,
+        "sleep": sleep_score,
+        "hrv": hrv,
+        "battery": body_battery,
+        "stress": stress,
         "recommendation": recommendation,
         "plan": plan
     }
 
 
+    # email config z Render ENV
     email_config = {
         "to": os.getenv("EMAIL_TO"),
         "user": os.getenv("EMAIL_FROM"),
@@ -54,12 +93,15 @@ def run_ai_coach():
     }
 
 
+    # odeslání reportu
     create_and_send_report(data, email_config)
 
+
     return {
-        "trend": trend,
-        "recovery_score": recovery,
-        "tss7": total_tss,
+        "weekly_tss": total_tss,
+        "sleep": sleep_score,
+        "hrv": hrv,
+        "body_battery": body_battery,
         "recommendation": recommendation,
         "plan": plan
     }
