@@ -24,11 +24,7 @@ def build_plan_rows(plan):
     return html
 
 
-def build_plan_rows(plan):
-    html = ""
-    for p in plan:
-        html += f"<tr><td>{p.get('day','')}</td><td>{p.get('training','')}</td></tr>"
-    return html
+
 
 
 def generate_html_report(data):
