@@ -13,8 +13,8 @@ from app.ai.analysis_engine import generate_ai_analysis
 
 def run_ai_coach():
 
-    # poslední aktivity
-    activities = get_last_activities()
+    # včerejší aktivity
+    activities = get_yesterday_activities()
 
     # souhrn posledních 7 dní
     weekly_summary = get_last7_summary()
