@@ -633,11 +633,15 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
 
     
 # ---------------------------
-# ai-coach - funkce
+# ai-coach - endpoint
 # --------------------------
 
 @app.get("/ai-coach")
-def ai_coach():
+def ai_coach(admin_key: str):
+
+    if admin_key != os.getenv("ADMIN_KEY"):
+        return {"error": "unauthorized"}
+        
     return run_ai_coach()
 
 # ---------------------------
