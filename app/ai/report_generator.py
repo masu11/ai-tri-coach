@@ -190,7 +190,7 @@ def create_and_send_report(data, email_config):
 
     send_email_html(
         html,
-        "AI TRI COACH – denní report",
+        f"AI TRI COACH – report {date.today()}",
         email_config["to"],
         email_config["user"],
         email_config["password"],
