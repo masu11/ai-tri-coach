@@ -1,4 +1,5 @@
 from app.database import db
+from sqlalchemy import text
 from app.database import engine
 
 
@@ -6,7 +7,7 @@ def get_last7_daily_tss():
 
     with engine.connect() as conn:
 
-        result = conn.execute("""
+        result = conn.execute(text("""
             SELECT
                 DATE(start_date) as day,
                 SUM(tss) as tss
@@ -15,7 +16,7 @@ def get_last7_daily_tss():
             AND duration BETWEEN 300 AND 28800
             GROUP BY DATE(start_date)
             ORDER BY day
-        """)
+        """))
 
         rows = result.fetchall()
 
