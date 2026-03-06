@@ -55,7 +55,7 @@ def run_ai_coach():
         last = activities[0]
 
         yesterday_rows.append({
-            "sport": last.get("sport_type"),
+            "sport": last.get("sport"),
             "distance": round((last.get("distance") or 0) / 1000, 2),
             "duration": round((last.get("duration") or 0) / 60, 1),
             "tss": last.get("tss")
@@ -63,21 +63,21 @@ def run_ai_coach():
 
 
     # weekly rows pro report
-    weekly_rows = []
+   weekly_rows = []
 
     for r in weekly_summary:
 
         weekly_rows.append({
             "sport": r.get("sport"),
-            "count": r["activities"],
-            "distance": round((r["distance"] or 0) / 1000, 2),
-            "tss": r["tss"]
+            "count": r.get("count"),
+            "distance": round(((r.get("distance") or 0) / 1000), 2),
+            "tss": r.get("tss")
         })
 
 
     # data pro HTML report
     last30 = get_last30_summary()
-    last7_daily = get_last7_summary_by_day()
+    last7_daily = get_last30_summary()[-7:]
 
     data = {
         "yesterday": yesterday_rows,
@@ -115,8 +115,7 @@ def run_ai_coach():
         "sleep": sleep_score,
         "hrv": hrv,
         "body_battery": body_battery,
-        "recommendation": recommendation,
-        "plan": plan
+        "recommendation": recommendation
     }
 
 def training_light(total_tss, sleep_score):
