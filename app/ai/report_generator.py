@@ -156,6 +156,11 @@ def generate_html_report(data):
 
     </table>
 
+    <h2>AI Analýza</h2>
+
+    <p>
+    {data.get("analysis","")}
+    </p>
 
     <h2>Doporučení trenéra</h2>
 

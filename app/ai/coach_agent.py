@@ -4,7 +4,7 @@ from app.ai.metrics_builder import get_last_activities, get_last7_summary
 from app.ai.recovery_model import get_latest_recovery
 from app.ai.plan_generator import generate_plan
 from app.ai.report_generator import create_and_send_report
-
+from app.ai.analysis_engine import generate_ai_analysis
 
 def run_ai_coach():
 
@@ -83,6 +83,10 @@ def run_ai_coach():
         "recommendation": recommendation,
         "plan": plan
     }
+
+    analysis = generate_ai_analysis(data)
+
+    data["analysis"] = analysis
 
     email_config = {
         "to": os.getenv("EMAIL_TO")
