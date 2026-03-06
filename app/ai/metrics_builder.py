@@ -3,14 +3,14 @@ from app.database import db
 def get_last_runs():
     rows = db.fetch_all("""
     SELECT
-        distance,
-        duration,
-        hr
-    FROM activities
-    WHERE sport_type = 'Run'
-    AND duration BETWEEN 300 AND 28800
-    ORDER BY start_date DESC
-    LIMIT 20
+    distance,
+    duration,
+    average_heartrate AS hr
+FROM activities
+WHERE sport_type = 'Run'
+AND duration BETWEEN 300 AND 28800
+ORDER BY start_date DESC
+LIMIT 20
     """)
     return rows
 
