@@ -3,6 +3,8 @@ from datetime import date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
+import os
+import resend
 
 def build_table_rows(rows, columns):
 
@@ -212,12 +214,13 @@ def create_and_send_report(data, email_config):
 
     html = generate_html_report(data)
 
-    send_email_html(
-        html,
-        f"AI TRI COACH – report {date.today()}",
-        email_config["to"],
-        email_config["user"],
-        email_config["password"],
-    )
+    resend.api_key = os.getenv("RESEND_API_KEY")
+
+    resend.Emails.send({
+        "from": "AI TRI COACH <onboarding@resend.dev>",
+        "to": [email_config["to"]],
+        "subject": f"AI TRI COACH – report {date.today()}",
+        "html": html
+    })
 
     return html

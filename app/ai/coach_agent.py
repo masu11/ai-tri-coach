@@ -86,10 +86,8 @@ def run_ai_coach():
 
 
     # email config z Render ENV
-    email_config = {
-        "to": os.getenv("EMAIL_TO"),
-        "user": os.getenv("EMAIL_FROM"),
-        "password": os.getenv("EMAIL_PASSWORD")
+   email_config = {
+    "to": os.getenv("EMAIL_TO")
     }
 
 
