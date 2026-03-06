@@ -91,7 +91,7 @@ def run_ai_coach():
         "recommendation": recommendation,
     }
 
-analysis = generate_ai_analysis(data)
+    analysis = generate_ai_analysis(data)
 
     if isinstance(analysis, dict):
 
