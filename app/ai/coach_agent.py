@@ -68,7 +68,7 @@ def run_ai_coach():
     for r in weekly_summary:
 
         weekly_rows.append({
-            "sport": r["sport_type"],
+            "sport": r.get("sport"),
             "count": r["activities"],
             "distance": round((r["distance"] or 0) / 1000, 2),
             "tss": r["tss"]
