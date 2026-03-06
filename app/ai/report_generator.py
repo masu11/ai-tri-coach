@@ -23,11 +23,44 @@ def build_table_rows(rows, columns):
             if c == "tss" and value not in ("", None):
                 value = round(float(value), 2)
 
-            html += f"<td>{value}</td>"
+            alignment = "left" if c == "sport" else "right"
+
+            html += (
+                "<td "
+                "style='padding:10px 12px;"
+                "border-bottom:1px solid #e5e7eb;"
+                f"text-align:{alignment};'"
+                f">{value}</td>"
+            )
 
         html += "</tr>"
 
     return html
+
+
+def build_report_table(title, rows):
+
+    heading = ""
+
+    if title:
+        heading = f'<h2 style="margin:24px 0 12px;font-size:32px;line-height:1.2;color:#0f172a">{title}</h2>'
+
+    return f"""
+    {heading}
+    <table style="border-collapse:separate;border-spacing:0;width:80%;max-width:760px;background:#ffffff;border:1px solid #dbe4f0;border-radius:10px;overflow:hidden">
+        <thead>
+            <tr style="background:#eef4ff">
+                <th style="padding:11px 12px;text-align:left;color:#1e3a8a;font-weight:700;border-bottom:1px solid #dbe4f0">Sport</th>
+                <th style="padding:11px 12px;text-align:right;color:#1e3a8a;font-weight:700;border-bottom:1px solid #dbe4f0">Počet</th>
+                <th style="padding:11px 12px;text-align:right;color:#1e3a8a;font-weight:700;border-bottom:1px solid #dbe4f0">Vzdálenost</th>
+                <th style="padding:11px 12px;text-align:right;color:#1e3a8a;font-weight:700;border-bottom:1px solid #dbe4f0">TSS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows}
+        </tbody>
+    </table>
+    """
 
 
 
@@ -36,7 +69,7 @@ def generate_html_report(data):
 
     yesterday_rows = build_table_rows(
         data.get("yesterday", []),
-        ["sport", "distance", "duration", "tss"]
+        ["sport", "count", "distance", "tss"]
     )
 
     weekly_rows = build_table_rows(
@@ -45,81 +78,44 @@ def generate_html_report(data):
     )
 
     chart7 = tss_chart(data.get("last7_daily", []))
-    chart30 = tss_chart(data.get("last30", []))
+
+    monthly_rows = build_table_rows(
+        data.get("monthly", []),
+        ["sport", "count", "distance", "tss"]
+    )
 
     html = f"""
-        <h2>Včera</h2>
+    <div style="font-family:Arial,sans-serif;background:#f8fafc;color:#0f172a;padding:20px 18px">
+        {build_report_table("Včera", yesterday_rows)}
 
-    <table style="border-collapse:collapse;width:100%">
-    <tr>
-    <th>Sport</th>
-    <th>Vzdálenost</th>
-    <th>Čas</th>
-    <th>TSS</th>
-    </tr>
+        <h3 style="margin:16px 0 8px;font-size:22px;color:#1f2937">AI hodnocení</h3>
+        <p style="white-space:pre-line;margin:0 0 10px;line-height:1.5;max-width:760px">
+            {data.get("analysis_yesterday","")}
+        </p>
 
-    {yesterday_rows}
+        <h2 style="margin:30px 0 12px;font-size:32px;line-height:1.2;color:#0f172a">Posledních 7 dní</h2>
+        <img src="data:image/png;base64,{chart7}" style="width:80%;max-width:760px;display:block;margin-bottom:14px;border-radius:10px;border:1px solid #dbe4f0;background:#fff" />
+        {build_report_table("", weekly_rows)}
 
-    </table>
+        <h3 style="margin:16px 0 8px;font-size:22px;color:#1f2937">AI hodnocení</h3>
+        <p style="white-space:pre-line;margin:0 0 10px;line-height:1.5;max-width:760px">
+            {data.get("analysis_week","")}
+        </p>
 
-    <h3>AI hodnocení</h3>
+        {build_report_table("Posledních 30 dní", monthly_rows)}
 
-    <p style="white-space: pre-line">
-    {data.get("analysis_yesterday","")}
-    </p>
+        <h3 style="margin:16px 0 8px;font-size:22px;color:#1f2937">AI hodnocení</h3>
+        <p style="white-space:pre-line;margin:0 0 10px;line-height:1.5;max-width:760px">
+            {data.get("analysis_month","")}
+        </p>
 
+        <h2 style="margin:24px 0 8px;font-size:30px;line-height:1.2;color:#0f172a">Doporučení trenéra</h2>
+        <p style="font-size:22px;margin:0 0 8px;color:#0f172a;font-weight:700">
+            {data.get("load_status","")}
+        </p>
 
-    <h2>Posledních 7 dní</h2>
-
-    <img src="data:image/png;base64,{chart7}" />
-
-    <table style="border-collapse:collapse;width:100%">
-    <tr>
-    <th>Sport</th>
-    <th>Počet</th>
-    <th>Vzdálenost</th>
-    <th>TSS</th>
-    </tr>
-
-    {weekly_rows}
-
-    </table>
-
-    <h3>AI hodnocení</h3>
-
-    <p style="white-space: pre-line">
-    {data.get("analysis_week","")}
-    </p>
-
-
-    <h2>Posledních 30 dní</h2>
-
-    <table style="border-collapse:collapse;width:100%">
-    <tr>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Sport</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Počet</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Vzdálenost</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">TSS</th>
-    </tr>
-
-    {build_table_rows(data.get("monthly", []), ["sport","count","distance","tss"])}
-
-    </table>
-
-    <h3>AI hodnocení</h3>
-
-    <p style="white-space: pre-line">
-    {data.get("analysis_month","")}
-    </p>
-
-
-    <h2>Doporučení trenéra</h2>
-
-    <p style="font-size:20px">
-    {data.get("load_status","")}
-    </p>
-
-    <p class="rec">{data.get("recommendation","")}</p>
+        <p style="margin:0;line-height:1.5;max-width:760px">{data.get("recommendation","")}</p>
+    </div>
     """
 
     return html
