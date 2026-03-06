@@ -9,6 +9,7 @@ from garminconnect import Garmin
 from psycopg.types.json import Json
 from app.routers import admin_router
 from fastapi import BackgroundTasks
+from app.ai.coach_agent import run_ai_coach
 
 
 app = FastAPI()
@@ -628,3 +629,29 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
     check_key(admin_key)
 
     return run_sync_garmin(start, debug_date)
+
+
+    
+# ---------------------------
+# ai-coach - funkce
+# --------------------------
+
+@app.get("/ai-coach")
+def ai_coach():
+    return run_ai_coach()
+
+# ---------------------------
+# cron-ai-coach - endpoint
+# --------------------------
+
+@app.get("/cron-ai-coach")
+def cron_ai_coach(admin_key: str):
+
+    if admin_key != os.getenv("ADMIN_KEY"):
+        return {"error": "unauthorized"}
+
+    result = run_ai_coach()
+
+    print(result)
+
+    return {"status": "done", "result": result}
