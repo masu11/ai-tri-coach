@@ -23,7 +23,13 @@ def build_table_rows(rows, columns):
             if c == "tss" and value not in ("", None):
                 value = round(float(value), 2)
 
-            html += f"<td>{value}</td>"
+            text_align = "left" if c == "sport" else "right"
+
+            html += (
+                "<td "
+                f"style=\"border:1px solid #cfcfcf;padding:6px 10px;text-align:{text_align}\""
+                f">{value}</td>"
+            )
 
         html += "</tr>"
 
@@ -33,6 +39,19 @@ def build_table_rows(rows, columns):
 
 
 def generate_html_report(data):
+
+    table_style = (
+        "border-collapse:collapse;"
+        "width:auto;"
+        "border:1px solid #cfcfcf;"
+        "margin:0 0 14px 0"
+    )
+    header_cell_style = (
+        "border:1px solid #cfcfcf;"
+        "padding:6px 10px;"
+        "background:#f6f6f6;"
+        "text-align:left"
+    )
 
     yesterday_rows = build_table_rows(
         data.get("yesterday", []),
@@ -50,12 +69,12 @@ def generate_html_report(data):
     html = f"""
         <h2>Včera</h2>
 
-    <table style="border-collapse:collapse;width:100%">
+    <table style="{table_style}">
     <tr>
-    <th>Sport</th>
-    <th>Vzdálenost</th>
-    <th>Čas</th>
-    <th>TSS</th>
+    <th style="{header_cell_style}">Sport</th>
+    <th style="{header_cell_style}">Vzdálenost</th>
+    <th style="{header_cell_style}">Čas</th>
+    <th style="{header_cell_style}">TSS</th>
     </tr>
 
     {yesterday_rows}
@@ -73,12 +92,12 @@ def generate_html_report(data):
 
     <img src="data:image/png;base64,{chart7}" />
 
-    <table style="border-collapse:collapse;width:100%">
+    <table style="{table_style}">
     <tr>
-    <th>Sport</th>
-    <th>Počet</th>
-    <th>Vzdálenost</th>
-    <th>TSS</th>
+    <th style="{header_cell_style}">Sport</th>
+    <th style="{header_cell_style}">Počet</th>
+    <th style="{header_cell_style}">Vzdálenost</th>
+    <th style="{header_cell_style}">TSS</th>
     </tr>
 
     {weekly_rows}
@@ -94,12 +113,12 @@ def generate_html_report(data):
 
     <h2>Posledních 30 dní</h2>
 
-    <table style="border-collapse:collapse;width:100%">
+    <table style="{table_style}">
     <tr>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Sport</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Počet</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">Vzdálenost</th>
-    <th style="border:1px solid #ccc;padding:6px;text-align:right">TSS</th>
+    <th style="{header_cell_style}">Sport</th>
+    <th style="{header_cell_style}">Počet</th>
+    <th style="{header_cell_style}">Vzdálenost</th>
+    <th style="{header_cell_style}">TSS</th>
     </tr>
 
     {build_table_rows(data.get("monthly", []), ["sport","count","distance","tss"])}
