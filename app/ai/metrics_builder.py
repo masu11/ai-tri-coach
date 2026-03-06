@@ -1,34 +1,33 @@
 from app.database import db
-from app.database import get_connection
+from app.database import engine
 
 
 def get_last7_daily_tss():
 
-    conn = get_connection()
-    cur = conn.cursor()
+    with engine.connect() as conn:
 
-    cur.execute("""
-        SELECT
-            DATE(start_date) as day,
-            SUM(tss) as tss
-        FROM activities
-        WHERE start_date > NOW() - INTERVAL '7 days'
-        AND duration BETWEEN 300 AND 28800
-        GROUP BY DATE(start_date)
-        ORDER BY day
-    """)
+        result = conn.execute("""
+            SELECT
+                DATE(start_date) as day,
+                SUM(tss) as tss
+            FROM activities
+            WHERE start_date > NOW() - INTERVAL '7 days'
+            AND duration BETWEEN 300 AND 28800
+            GROUP BY DATE(start_date)
+            ORDER BY day
+        """)
 
-    rows = cur.fetchall()
+        rows = result.fetchall()
 
-    result = []
+    data = []
 
     for r in rows:
-        result.append({
+        data.append({
             "day": str(r[0]),
             "tss": float(r[1] or 0)
         })
 
-    return result
+    return data
 
 
 def get_last7_summary():
