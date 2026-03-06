@@ -1,12 +1,7 @@
-from openai import OpenAI
 import os
+from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": prompt}]
-)
 
 
 def generate_ai_analysis(data):
@@ -14,28 +9,26 @@ def generate_ai_analysis(data):
     prompt = f"""
 Jsi triatlonový trenér.
 
-Analyzuj trénink.
+Analyzuj tréninková data.
 
-DATA:
+VČERA:
+{data.get("yesterday")}
 
-Včera:
-{data["yesterday"]}
+POSLEDNÍCH 7 DNÍ:
+{data.get("weekly")}
 
-Posledních 7 dní:
-{data["weekly"]}
+RECOVERY:
+Sleep score: {data.get("sleep")}
+HRV: {data.get("hrv")}
+Body battery: {data.get("battery")}
+Stress: {data.get("stress")}
 
-Recovery:
-Sleep score: {data["sleep"]}
-HRV: {data["hrv"]}
-Body battery: {data["battery"]}
-Stress: {data["stress"]}
-
-Vytvoř stručné hodnocení:
+Napiš krátké hodnocení:
 
 1) zhodnoť včerejší trénink
 2) zhodnoť posledních 7 dní
 3) zhodnoť recovery
-4) napiš doporučení
+4) dej krátké doporučení
 
 max 8 vět
 česky

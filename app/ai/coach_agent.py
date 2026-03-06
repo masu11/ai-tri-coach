@@ -6,6 +6,7 @@ from app.ai.plan_generator import generate_plan
 from app.ai.report_generator import create_and_send_report
 from app.ai.analysis_engine import generate_ai_analysis
 
+
 def run_ai_coach():
 
     # poslední aktivity
