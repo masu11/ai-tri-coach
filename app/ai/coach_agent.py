@@ -84,11 +84,10 @@ def run_ai_coach():
         "plan": plan
     }
 
-
-    # email config z Render ENV
-   email_config = {
-    "to": os.getenv("EMAIL_TO")
+    email_config = {
+        "to": os.getenv("EMAIL_TO")
     }
+
 
 
     # odeslání reportu
