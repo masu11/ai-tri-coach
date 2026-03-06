@@ -120,7 +120,7 @@ def run_ai_coach():
         "plan": plan
     }
 
-    def training_light(total_tss, sleep_score):
+def training_light(total_tss, sleep_score):
 
     if sleep_score < 60 or total_tss > 700:
         return "🔴 Přetížení"
