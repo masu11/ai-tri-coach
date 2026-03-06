@@ -17,7 +17,10 @@ def build_table_rows(rows, columns):
 
         for c in columns:
 
-            value = r.get(c, "") if isinstance(r, dict) else ""
+            value = r.get(c, "")
+
+            if c == "tss" and value != "":
+            value = round(float(value), 2)
 
             html += f"<td>{value}</td>"
 
@@ -68,7 +71,7 @@ def generate_html_report(data):
     html = f"""
         <h2>Včera</h2>
 
-    <table>
+    <table style="border-collapse:collapse;width:100%">
     <tr>
     <th>Sport</th>
     <th>Vzdálenost</th>
@@ -82,14 +85,16 @@ def generate_html_report(data):
 
     <h3>AI hodnocení</h3>
 
-    <p>{data.get("analysis_yesterday","")}</p>
+    <p style="white-space: pre-line">
+    {data.get("analysis_yesterday","")}
+    </p>
 
 
     <h2>Posledních 7 dní</h2>
 
     <img src="data:image/png;base64,{chart7}" />
 
-    <table>
+    <table style="border-collapse:collapse;width:100%">
     <tr>
     <th>Sport</th>
     <th>Počet</th>
@@ -103,16 +108,30 @@ def generate_html_report(data):
 
     <h3>AI hodnocení</h3>
 
-    <p>{data.get("analysis_week","")}</p>
+    <p style="white-space: pre-line">
+    {data.get("analysis_week","")}
+    </p>
 
 
     <h2>Posledních 30 dní</h2>
 
-    <img src="data:image/png;base64,{chart30}" />
+    <table style="border-collapse:collapse;width:100%">
+    <tr>
+    <th style="border:1px solid #ccc;padding:6px;text-align:right">Sport</th>
+    <th style="border:1px solid #ccc;padding:6px;text-align:right">Počet</th>
+    <th style="border:1px solid #ccc;padding:6px;text-align:right">Vzdálenost</th>
+    <th style="border:1px solid #ccc;padding:6px;text-align:right">TSS</th>
+    </tr>
+
+    {build_table_rows(data.get("monthly", []), ["sport","count","distance","tss"])}
+
+    </table>
 
     <h3>AI hodnocení</h3>
 
-    <p>{data.get("analysis_month","")}</p>
+    <p style="white-space: pre-line">
+    {data.get("analysis_month","")}
+    </p>
 
 
     <h2>Doporučení trenéra</h2>

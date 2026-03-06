@@ -77,13 +77,22 @@ def run_ai_coach():
 
     # data pro HTML report
     last30 = get_last30_summary()
-    last7_daily = get_last30_summary()[-7:]
+
+    monthly_rows = []
+
+    for r in last30:
+
+        monthly_rows.append({
+            "sport": r.get("sport"),
+            "count": r.get("count"),
+            "distance": round(((r.get("distance") or 0) / 1000), 2),
+            "tss": round((r.get("tss") or 0), 2)
+        })    
 
     data = {
         "yesterday": yesterday_rows,
         "weekly": weekly_rows,
-        "last30": last30,
-        "last7_daily": last7_daily,
+        "monthly": last30_summary,
         "sleep": sleep_score,
         "hrv": hrv,
         "battery": body_battery,

@@ -24,13 +24,15 @@ def get_last30_summary():
 
     rows = db.fetch_all("""
         SELECT
-            DATE(start_date) AS day,
+            sport_type AS sport,
+            COUNT(*) AS count,
+            SUM(distance) AS distance,
             SUM(tss) AS tss
         FROM activities
         WHERE start_date > NOW() - INTERVAL '30 days'
-        AND duration BETWEEN 300 AND 28800        
-        GROUP BY day
-        ORDER BY day
+        AND duration BETWEEN 300 AND 28800
+        GROUP BY sport_type
+        ORDER BY sport_type
     """)
 
     return rows
