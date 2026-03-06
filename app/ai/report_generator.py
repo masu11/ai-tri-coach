@@ -7,6 +7,7 @@ import os
 import resend
 from app.ai.chart_builder import tss_chart
 
+
 def build_table_rows(rows, columns):
 
     html = ""
@@ -17,34 +18,14 @@ def build_table_rows(rows, columns):
 
         for c in columns:
 
-            value = r.get(c, "")
+            value = r.get(c, "") if isinstance(r, dict) else ""
 
-            if c == "tss" and value != "":
-            value = round(float(value), 2)
+            if c == "tss" and value not in ("", None):
+                value = round(float(value), 2)
 
             html += f"<td>{value}</td>"
 
         html += "</tr>"
-
-    return html
-
-def build_plan_rows(plan):
-
-    html = ""
-
-    for p in plan:
-
-        if isinstance(p, dict):
-
-            day = p.get("day", "")
-            training = p.get("training", "")
-
-        else:
-
-            day = ""
-            training = str(p)
-
-        html += f"<tr><td>{day}</td><td>{training}</td></tr>"
 
     return html
 
