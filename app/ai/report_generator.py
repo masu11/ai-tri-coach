@@ -44,8 +44,6 @@ def generate_html_report(data):
         ["sport", "count", "distance", "tss"]
     )
 
-    plan_rows = build_plan_rows(data.get("plan", []))
-
     chart7 = tss_chart(data.get("last7_daily", []))
     chart30 = tss_chart(data.get("last30", []))
 
