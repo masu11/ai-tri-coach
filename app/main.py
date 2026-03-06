@@ -464,6 +464,12 @@ def run_sync_garmin(start: str | None = None, debug_date: str | None = None):
                     hrv = api.get_hrv_data(current.isoformat())
                     stress = api.get_stress_data(current.isoformat())
 
+                    # pokud Garmin ještě nemá data pro daný den → přeskočit
+                    if not sleep and not stats and not hrv:
+                        print(f"No Garmin data yet for {current}, skipping")
+                        current += timedelta(days=1)
+                        continue
+
                     # ---- DEBUG MODE ----
                     if debug_target:
                         return {
