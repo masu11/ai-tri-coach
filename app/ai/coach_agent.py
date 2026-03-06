@@ -54,11 +54,13 @@ def run_ai_coach():
     }
 
 
-    email_config = {
-        "to": "tvuj@email.cz",
-        "user": "SMTP_USER",
-        "password": "SMTP_PASS"
-    }
+   import os
+
+email_config = {
+    "to": os.getenv("EMAIL_TO"),
+    "user": os.getenv("EMAIL_FROM"),
+    "password": os.getenv("EMAIL_PASSWORD")
+}
 
 
     # odeslání reportu
