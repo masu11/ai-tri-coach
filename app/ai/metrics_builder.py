@@ -19,19 +19,30 @@ def get_last_activities():
 
     return rows
 
-def get_last7_summary():
+def get_last30_summary():
 
     rows = db.fetch_all("""
     SELECT
-        sport_type,
-        COUNT(*) as activities,
-        SUM(distance) as distance,
-        SUM(duration) as duration,
+        DATE(start_date) as day,
+        SUM(tss) as tss
+    FROM activities
+    WHERE start_date > NOW() - INTERVAL '30 days'
+    GROUP BY day
+    ORDER BY day
+    """)
+
+    return rows    
+
+def get_last7_summary_by_day():
+
+    rows = db.fetch_all("""
+    SELECT
+        DATE(start_date) as day,
         SUM(tss) as tss
     FROM activities
     WHERE start_date > NOW() - INTERVAL '7 days'
-    AND duration BETWEEN 300 AND 28800
-    GROUP BY sport_type
+    GROUP BY day
+    ORDER BY day
     """)
 
     return rows

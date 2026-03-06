@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 import smtplib
 import os
 import resend
+from app.ai.chart_builder import tss_chart
 
 def build_table_rows(rows, columns):
 
@@ -61,126 +62,66 @@ def generate_html_report(data):
 
     plan_rows = build_plan_rows(data.get("plan", []))
 
+    chart7 = tss_chart(data.get("last7_daily", []))
+    chart30 = tss_chart(data.get("last30", []))
+
     html = f"""
-    <html>
-    <head>
-    <style>
-
-    body {{
-        font-family: Arial;
-        margin: 20px;
-        background-color:#ffffff;
-    }}
-
-    h1 {{
-        color:#2c3e50;
-    }}
-
-    h2 {{
-        margin-top:30px;
-        color:#34495e;
-    }}
-
-    table {{
-        border-collapse: collapse;
-        width: 100%;
-        margin-top:10px;
-    }}
-
-    th, td {{
-        border:1px solid #ddd;
-        padding:8px;
-        text-align:center;
-    }}
-
-    th {{
-        background:#f4f6f7;
-    }}
-
-    .rec {{
-        font-size:18px;
-        font-weight:bold;
-        color:#2c3e50;
-    }}
-
-    </style>
-    </head>
-
-    <body>
-
-    <h1>AI TRI COACH – denní report</h1>
-    <p>Datum: {date.today()}</p>
-
-    <h2>Včerejší aktivity</h2>
+        <h2>Včera</h2>
 
     <table>
     <tr>
-        <th>Sport</th>
-        <th>Vzdálenost</th>
-        <th>Čas</th>
-        <th>TSS</th>
+    <th>Sport</th>
+    <th>Vzdálenost</th>
+    <th>Čas</th>
+    <th>TSS</th>
     </tr>
+
     {yesterday_rows}
+
     </table>
 
+    <h3>AI hodnocení</h3>
 
-    <h2>Souhrn posledních 7 dní</h2>
+    <p>{data.get("analysis_yesterday","")}</p>
+
+
+    <h2>Posledních 7 dní</h2>
+
+    <img src="data:image/png;base64,{chart7}" />
 
     <table>
     <tr>
-        <th>Sport</th>
-        <th>Počet aktivit</th>
-        <th>Vzdálenost</th>
-        <th>TSS</th>
+    <th>Sport</th>
+    <th>Počet</th>
+    <th>Vzdálenost</th>
+    <th>TSS</th>
     </tr>
+
     {weekly_rows}
-    </table>
-
-
-    <h2>Recovery (Garmin)</h2>
-
-    <table>
-    <tr>
-        <th>Sleep score</th>
-        <th>HRV</th>
-        <th>Body Battery</th>
-        <th>Stress</th>
-    </tr>
-
-    <tr>
-        <td>{data.get("sleep","")}</td>
-        <td>{data.get("hrv","")}</td>
-        <td>{data.get("battery","")}</td>
-        <td>{data.get("stress","")}</td>
-    </tr>
 
     </table>
 
-    <h2>AI Analýza</h2>
+    <h3>AI hodnocení</h3>
 
-    <p>
-    {data.get("analysis","")}
-    </p>
+    <p>{data.get("analysis_week","")}</p>
+
+
+    <h2>Posledních 30 dní</h2>
+
+    <img src="data:image/png;base64,{chart30}" />
+
+    <h3>AI hodnocení</h3>
+
+    <p>{data.get("analysis_month","")}</p>
+
 
     <h2>Doporučení trenéra</h2>
 
+    <p style="font-size:20px">
+    {data.get("load_status","")}
+    </p>
+
     <p class="rec">{data.get("recommendation","")}</p>
-
-
-    <h2>Plán na dalších 7 dní</h2>
-
-    <table>
-    <tr>
-        <th>Den</th>
-        <th>Trénink</th>
-    </tr>
-
-    {plan_rows}
-
-    </table>
-
-    </body>
-    </html>
     """
 
     return html

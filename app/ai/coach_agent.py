@@ -1,6 +1,11 @@
 import os
 
-from app.ai.metrics_builder import get_last_activities, get_last7_summary
+from app.ai.metrics_builder import (
+    get_last_activities,
+    get_last7_summary,
+    get_last30_summary,
+    get_last7_summary_by_day
+)
 from app.ai.recovery_model import get_latest_recovery
 from app.ai.plan_generator import generate_plan
 from app.ai.report_generator import create_and_send_report
@@ -41,8 +46,6 @@ def run_ai_coach():
         recommendation = "Optimální tréninková zátěž"
 
 
-    # generování plánu
-    plan = generate_plan(recommendation)
 
 
     # včerejší aktivity
@@ -74,20 +77,29 @@ def run_ai_coach():
 
 
     # data pro HTML report
+    last30 = get_last30_summary()
+    last7_daily = get_last7_summary_by_day()
+
     data = {
         "yesterday": yesterday_rows,
         "weekly": weekly_rows,
+        "last30": last30,
+        "last7_daily": last7_daily,
         "sleep": sleep_score,
         "hrv": hrv,
         "battery": body_battery,
         "stress": stress,
         "recommendation": recommendation,
-        "plan": plan
     }
 
     analysis = generate_ai_analysis(data)
 
+    data["analysis_yesterday"] = analysis["yesterday"]
+    data["analysis_week"] = analysis["week"]
+    data["analysis_month"] = analysis["month"]
+
     data["analysis"] = analysis
+    data["load_status"] = training_light(total_tss, sleep_score)
 
     email_config = {
         "to": os.getenv("EMAIL_TO")
@@ -107,3 +119,13 @@ def run_ai_coach():
         "recommendation": recommendation,
         "plan": plan
     }
+
+    def training_light(total_tss, sleep_score):
+
+    if sleep_score < 60 or total_tss > 700:
+        return "🔴 Přetížení"
+
+    if total_tss > 450:
+        return "🟡 Zvýšená zátěž"
+
+    return "🟢 Optimální zátěž"
