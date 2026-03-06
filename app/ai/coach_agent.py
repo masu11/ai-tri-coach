@@ -63,7 +63,7 @@ def run_ai_coach():
 
 
     # weekly rows pro report
-   weekly_rows = []
+    weekly_rows = []
 
     for r in weekly_summary:
 
