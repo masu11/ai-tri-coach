@@ -4,6 +4,24 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
 
+def build_table_rows(rows, columns):
+
+    html = ""
+
+    for r in rows:
+
+        html += "<tr>"
+
+        for c in columns:
+
+            value = r.get(c, "") if isinstance(r, dict) else ""
+
+            html += f"<td>{value}</td>"
+
+        html += "</tr>"
+
+    return html
+
 def build_plan_rows(plan):
 
     html = ""
@@ -23,7 +41,6 @@ def build_plan_rows(plan):
         html += f"<tr><td>{day}</td><td>{training}</td></tr>"
 
     return html
-
 
 
 
