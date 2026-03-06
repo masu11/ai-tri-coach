@@ -91,11 +91,19 @@ def run_ai_coach():
         "recommendation": recommendation,
     }
 
-    analysis = generate_ai_analysis(data)
+analysis = generate_ai_analysis(data)
 
-    data["analysis_yesterday"] = analysis["yesterday"]
-    data["analysis_week"] = analysis["week"]
-    data["analysis_month"] = analysis["month"]
+    if isinstance(analysis, dict):
+
+        data["analysis_yesterday"] = analysis.get("yesterday")
+        data["analysis_week"] = analysis.get("week")
+        data["analysis_month"] = analysis.get("month")
+
+    else:
+
+        data["analysis_yesterday"] = analysis
+        data["analysis_week"] = ""
+        data["analysis_month"] = ""
 
     data["analysis"] = analysis
     data["load_status"] = training_light(total_tss, sleep_score)
