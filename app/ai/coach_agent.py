@@ -1,10 +1,10 @@
 import os
 
 from app.ai.metrics_builder import (
-    get_last_activities,
+    get_yesterday_activities,
     get_last7_summary,
-    get_last30_summary,
-    get_last7_summary_by_day
+    get_last30_summary
+)
 )
 from app.ai.recovery_model import get_latest_recovery
 from app.ai.plan_generator import generate_plan
