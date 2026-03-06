@@ -1,48 +1,54 @@
 from app.database import db
 
 
-def get_last_activities():
+def get_last7_summary():
 
     rows = db.fetch_all("""
-    SELECT
-        sport_type,
-        distance,
-        duration,
-        avg_hr,
-        avg_power,
-        tss
-    FROM activities
-    WHERE duration BETWEEN 300 AND 28800
-    ORDER BY start_date DESC
-    LIMIT 30
+        SELECT
+            sport_type AS sport,
+            COUNT(*) AS count,
+            SUM(distance) AS distance,
+            SUM(tss) AS tss
+        FROM activities
+        WHERE start_date > NOW() - INTERVAL '7 days'
+        AND duration BETWEEN 300 AND 28800
+        GROUP BY sport_type
+        ORDER BY sport_type
     """)
 
     return rows
 
+
+
 def get_last30_summary():
 
     rows = db.fetch_all("""
-    SELECT
-        DATE(start_date) as day,
-        SUM(tss) as tss
-    FROM activities
-    WHERE start_date > NOW() - INTERVAL '30 days'
-    GROUP BY day
-    ORDER BY day
+        SELECT
+            DATE(start_date) AS day,
+            SUM(tss) AS tss
+        FROM activities
+        WHERE start_date > NOW() - INTERVAL '30 days'
+        AND duration BETWEEN 300 AND 28800        
+        GROUP BY day
+        ORDER BY day
     """)
 
-    return rows    
+    return rows
 
-def get_last7_summary_by_day():
+
+
+def get_yesterday_activities():
 
     rows = db.fetch_all("""
-    SELECT
-        DATE(start_date) as day,
-        SUM(tss) as tss
-    FROM activities
-    WHERE start_date > NOW() - INTERVAL '7 days'
-    GROUP BY day
-    ORDER BY day
+        SELECT
+            sport_type AS sport,
+            distance,
+            duration,
+            tss
+        FROM activities
+        WHERE DATE(start_date) = CURRENT_DATE - INTERVAL '1 day'
+        AND duration BETWEEN 300 AND 28800        
+        ORDER BY start_date
     """)
 
     return rows
