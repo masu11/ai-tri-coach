@@ -94,6 +94,14 @@ def init_db():
                 )
             """)
 
+            # AI COACH RUN LOG (1x denně)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ai_coach_run_log (
+                    run_date DATE PRIMARY KEY,
+                    triggered_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+
 init_db()
 
 
@@ -132,21 +140,14 @@ def cron_sync(admin_key: str, background_tasks: BackgroundTasks):
 
 
 sync_running = False
-last_sync_date = None
 
 
 def run_sync():
 
-    global sync_running, last_sync_date
-
-    today = datetime.utcnow().date()
+    global sync_running
 
     if sync_running:
         print("Sync already running")
-        return
-
-    if last_sync_date == today:
-        print("Sync already done today")
         return
 
     sync_running = True
@@ -159,8 +160,6 @@ def run_sync():
 
         sync_garmin(admin_key=admin_key)
         sync_strava(admin_key=admin_key)
-
-        last_sync_date = today
 
         print("Sync completed")
 
@@ -632,6 +631,29 @@ def sync_garmin(admin_key: str, start: str | None = None, debug_date: str | None
 
 
     
+
+def acquire_ai_coach_daily_lock(run_date: date) -> bool:
+
+    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+        with conn.cursor() as cur:
+            # self-healing: tabulka může v existující DB chybět
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ai_coach_run_log (
+                    run_date DATE PRIMARY KEY,
+                    triggered_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+
+            cur.execute("""
+                INSERT INTO ai_coach_run_log (run_date)
+                VALUES (%s)
+                ON CONFLICT (run_date) DO NOTHING
+                RETURNING run_date
+            """, (run_date,))
+
+            inserted = cur.fetchone()
+            return inserted is not None
+
 # ---------------------------
 # ai-coach - endpoint
 # --------------------------
@@ -653,6 +675,11 @@ def cron_ai_coach(admin_key: str):
 
     if admin_key != os.getenv("ADMIN_KEY"):
         return {"error": "unauthorized"}
+
+    today = date.today()
+
+    if not acquire_ai_coach_daily_lock(today):
+        return {"status": "skipped", "reason": f"ai-coach already sent for {today}"}
 
     result = run_ai_coach()
 
