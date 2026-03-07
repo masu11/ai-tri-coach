@@ -311,7 +311,7 @@ def run_sync_strava(full: int = 0):
                 for act in activities:
 
                     # vypočítat TSS
-                   activity_for_tss = {
+                    activity_for_tss = {
                         "sport_type": act.get("sport_type"),
                         "duration": act.get("moving_time"),
                         "avg_hr": act.get("average_heartrate"),
