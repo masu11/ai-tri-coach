@@ -12,6 +12,10 @@ from app.ai.report_generator import create_and_send_report
 from app.ai.analysis_engine import generate_ai_analysis
 
 
+def _safe_number(value, default=0):
+    return default if value is None else value
+
+
 def run_ai_coach():
 
     # včerejší aktivity
@@ -27,10 +31,10 @@ def run_ai_coach():
     # recovery data z Garminu
     recovery = get_latest_recovery()
 
-    sleep_score = recovery.get("sleep_score", 0)
-    hrv = recovery.get("avg_hrv", 0)
-    body_battery = recovery.get("body_battery", 0)
-    stress = recovery.get("stress_avg", 0)
+    sleep_score = _safe_number(recovery.get("sleep_score"), 0)
+    hrv = _safe_number(recovery.get("avg_hrv"), 0)
+    body_battery = _safe_number(recovery.get("body_battery"), 0)
+    stress = _safe_number(recovery.get("stress_avg"), 0)
 
 
     # rozhodování AI trenéra
