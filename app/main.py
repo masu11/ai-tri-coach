@@ -10,6 +10,7 @@ from psycopg.types.json import Json
 from app.routers import admin_router
 from fastapi import BackgroundTasks
 from app.ai.coach_agent import run_ai_coach
+from app.ai.tss_calculator import compute_tss
 
 
 app = FastAPI()
@@ -260,38 +261,6 @@ def get_valid_token():
 
     return access_token
 
-# ---------------------------
-# calculate_tss - počítá TSS pro insert do activities
-# ---------------------------
-
-def calculate_tss(activity):
-
-    duration = activity.get("moving_time")
-    sport = activity.get("sport_type")
-    power = activity.get("average_watts")
-    hr = activity.get("average_heartrate")
-
-    if not duration:
-        return None
-
-    hours = duration / 3600
-
-    # bike
-    if sport in ["Ride","VirtualRide","GravelRide","MountainBikeRide"] and power:
-        ftp = 180
-        return hours * (power / ftp) ** 2 * 100
-
-    # run
-    if sport == "Run" and hr:
-        threshold_hr = 155
-        intensity = hr / threshold_hr
-        return hours * intensity ** 2 * 100
-
-    # swim
-    if sport == "Swim":
-        return hours * 60
-
-    return hours * 50
 
 # ---------------------------
 # RUN_SYNCS_TRAVA
