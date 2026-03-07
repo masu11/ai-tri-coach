@@ -320,7 +320,7 @@ def run_sync_strava(full: int = 0):
                     }
 
                     tss, method = compute_tss(activity_for_tss)
-                    
+
                     cur.execute("""
                     INSERT INTO activities
                     (strava_id, name, sport_type, start_date,
