@@ -311,8 +311,15 @@ def run_sync_strava(full: int = 0):
                 for act in activities:
 
                     # vypočítat TSS
-                    tss = calculate_tss(act)
+                   activity_for_tss = {
+                        "sport_type": act.get("sport_type"),
+                        "duration": act.get("moving_time"),
+                        "avg_hr": act.get("average_heartrate"),
+                        "avg_power": act.get("average_watts"),
+                        "weighted_average_watts": act.get("weighted_average_watts"),
+                    }
 
+                    tss, method = compute_tss(activity_for_tss)
                     cur.execute("""
                     INSERT INTO activities
                     (strava_id, name, sport_type, start_date,
@@ -321,14 +328,14 @@ def run_sync_strava(full: int = 0):
                     avg_hr, max_hr,
                     avg_power, avg_speed, max_speed,
                     avg_cadence, calories, suffer_score,
-                    raw_json, tss)
+                    raw_json, tss, tss_method)
                     VALUES (%s,%s,%s,%s,
                             %s,%s,%s,
                             %s,
                             %s,%s,
                             %s,%s,%s,
                             %s,%s,%s,
-                            %s,%s)
+                            %s,%s,%s)
                     ON CONFLICT (strava_id) DO NOTHING
                     """, (
                         act["id"],
@@ -347,8 +354,9 @@ def run_sync_strava(full: int = 0):
                         act.get("average_cadence"),
                         act.get("calories"),
                         act.get("suffer_score"),
-                        Json(act),
-                        tss
+                        JJson(act),
+                        tss,
+                        method
                     ))
 
                     total_processed += 1
